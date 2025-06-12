@@ -391,30 +391,28 @@ class LorebookController {
             const entry = await this.getPlayerIdentityEntry(identityTypeSuffix);
             if (entry && entry.content) {
                 const identityData = this.model.parseJsonContent(entry.content);
-                
-                // 如果解析成功，直接返回（包括null值）
-                if (identityData !== undefined) {
+                if (identityData !== null && identityData !== undefined) {
                     return identityData;
                 }
                 
-                console.warn(`玩家身份条目 (${identityTypeSuffix}) 内容为无效JSON`);
+                console.warn(`玩家身份条目 (${identityTypeSuffix}) 内容为空或无效JSON`);
             }
             
-            // 条目不存在或内容无效时，只有在明确提供默认值时才自动创建
-            if (defaultIdentityData !== undefined && arguments.length > 1) {
-                console.log(`玩家身份条目 (${identityTypeSuffix}) 未找到，使用提供的默认值创建`);
+            // 条目不存在或内容无效时，如果提供了默认值，自动创建
+            if (defaultIdentityData !== undefined) {
+                console.log(`玩家身份条目 (${identityTypeSuffix}) 未找到，使用默认值创建`);
                 await this.setPlayerIdentity(identityTypeSuffix, defaultIdentityData);
                 return defaultIdentityData;
             }
             
-            // 否则返回 undefined 表示未找到
+            // 没有提供默认值时返回 undefined
             return undefined;
         } catch (error) {
             console.error(`获取玩家身份 (${identityTypeSuffix}) 失败:`, error);
             
-            // 发生错误时，只有在明确提供默认值时才返回
-            if (defaultIdentityData !== undefined && arguments.length > 1) {
-                console.warn(`因获取错误，返回玩家身份 (${identityTypeSuffix}) 的默认数据。`);
+            // 发生错误时，如果提供了默认值，返回默认值
+            if (defaultIdentityData !== undefined) {
+                console.warn(`因获取错误，返回玩家身份 (${identityTypeSuffix}) 的默认数据`);
                 return defaultIdentityData;
             }
             

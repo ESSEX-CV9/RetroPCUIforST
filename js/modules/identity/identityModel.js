@@ -182,8 +182,8 @@ class IdentityModel {
                     ? controller.model.PLAYER_IDENTITY_SUFFIX_REAL 
                     : 'real';
                 
-                // 尝试从世界书获取身份，不提供默认值
-                const identity = await controller.getPlayerIdentity(suffix);
+                // 尝试从世界书获取身份，提供默认值以确保条目被创建
+                const identity = await controller.getPlayerIdentity(suffix, this.getDefaultRealIdentity());
                 
                 // 如果成功获取且不为null，同步到本地存储
                 if (identity && identity !== null) {
@@ -202,14 +202,9 @@ class IdentityModel {
             return localIdentity;
         }
         
-        // 都失败时才使用默认值，并自动保存到世界书
-        console.log("身份系统: 使用默认真实身份并初始化到世界书");
-        const defaultIdentity = this.getDefaultRealIdentity();
-        
-        // 异步保存默认身份到世界书，不等待结果
-        this._saveDefaultIdentityToWorldbook('real', defaultIdentity);
-        
-        return defaultIdentity;
+        // 都失败时才使用默认值
+        console.log("身份系统: 使用默认真实身份");
+        return this.getDefaultRealIdentity();
     }
 
     async getCoverIdentity() {
@@ -221,8 +216,8 @@ class IdentityModel {
                     ? controller.model.PLAYER_IDENTITY_SUFFIX_COVER 
                     : 'cover';
                 
-                // 尝试从世界书获取身份，不提供默认值
-                const identity = await controller.getPlayerIdentity(suffix);
+                // 尝试从世界书获取身份，提供默认值以确保条目被创建
+                const identity = await controller.getPlayerIdentity(suffix, this.getDefaultCoverIdentity());
                 
                 // 如果成功获取且不为null，同步到本地存储
                 if (identity && identity !== null) {
@@ -241,14 +236,9 @@ class IdentityModel {
             return localIdentity;
         }
         
-        // 都失败时才使用默认值，并自动保存到世界书
-        console.log("身份系统: 使用默认表面身份并初始化到世界书");
-        const defaultIdentity = this.getDefaultCoverIdentity();
-        
-        // 异步保存默认身份到世界书，不等待结果
-        this._saveDefaultIdentityToWorldbook('cover', defaultIdentity);
-        
-        return defaultIdentity;
+        // 都失败时才使用默认值
+        console.log("身份系统: 使用默认表面身份");
+        return this.getDefaultCoverIdentity();
     }
 
     async getDisguiseIdentity() {
@@ -260,7 +250,7 @@ class IdentityModel {
                     ? controller.model.PLAYER_IDENTITY_SUFFIX_DISGUISE 
                     : 'disguise';
                 
-                // 尝试从世界书获取身份，不提供默认值
+                // 尝试从世界书获取身份，不提供默认值（伪装可以不存在）
                 const identity = await controller.getPlayerIdentity(suffix);
                 
                 // 如果成功获取，同步到本地存储（伪装可以为null）

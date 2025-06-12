@@ -484,8 +484,8 @@ class IdentityController {
                 isSecret = false;
             }
             
-            // 使用新的分页显示方法
-            this.view.updateFilePageDisplay(identityData, this.currentFilePage, this.totalFilePages, isSecret, identityTypeSuffix);
+            // 使用异步的分页显示方法
+            await this.view.updateFilePageDisplay(identityData, this.currentFilePage, this.totalFilePages, isSecret, identityTypeSuffix);
             
             // 设置国籍特定样式
             if (identityData) {

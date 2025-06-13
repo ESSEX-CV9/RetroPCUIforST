@@ -133,6 +133,9 @@ class IdentityView {
                 <div class="identity-file-container">
                     <div class="file-header-title">
                         <div class="file-header-text">人员档案</div>
+                        <div class="scroll-mode-indicator" id="basicScrollIndicator">
+                            <span class="indicator-box">滚动模式</span>
+                        </div>
                     </div>
                     <div class="identity-file" id="identityFile">
                         </div>
@@ -170,6 +173,9 @@ class IdentityView {
                 <div class="identity-file-container">
                     <div class="file-header-title">
                         <div class="file-header-text">当前伪装</div>
+                        <div class="scroll-mode-indicator" id="disguiseScrollIndicator">
+                            <span class="indicator-box">滚动模式</span>
+                        </div>
                     </div>
                     <div class="identity-file" id="currentDisguiseDisplay">
                         </div>
@@ -226,7 +232,7 @@ class IdentityView {
                 <button id="basicInfoButton" class="terminal-button active">基本档案</button>
                 <button id="disguiseButton" class="terminal-button">伪装系统</button>
             </div>
-            <div class="keyboard-hints">Q/E:切换页面 ↑/↓:滚动/导航 回车:确认 F1:终端</div>
+            <div class="keyboard-hints">Q/E:切换页面 ↑/↓:导航 回车:进入滚动 ESC:退出滚动 F1:终端</div>
         `;
     }
     
@@ -235,16 +241,65 @@ class IdentityView {
         const style = document.createElement('style');
         style.textContent = `
             #identityFile, #currentDisguiseDisplay {
-                overflow-y: auto;      /* 开启滚动 */
-                scrollbar-width: none; /* Firefox */
-                max-height: 400px;     /* 设置最大高度以启用滚动 */
+                overflow-y: auto;
+                scrollbar-width: none;
+                max-height: 400px;
             }
             #identityFile::-webkit-scrollbar,
             #currentDisguiseDisplay::-webkit-scrollbar {
-                display: none;         /* Chrome/Edge/Safari */
+                display: none;
+            }
+            
+            /* 文件标题头部布局 */
+            .file-header-title {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 15px;
+                border-bottom: 1px solid #00ff00;
+                background: rgba(0, 255, 0, 0.1);
+            }
+            
+            .file-header-text {
+                color: #00ff00;
+                font-weight: bold;
+                font-size: 16px;
+            }
+            
+            /* 滚动模式指示器样式 */
+            .scroll-mode-indicator {
+                margin-left: 10px;
+            }
+            
+            .indicator-box {
+                display: inline-block;
+                padding: 2px 8px;
+                border: 1px solid #004400;
+                background: rgba(0, 68, 0, 0.3);
+                color: #004400;
+                font-size: 12px;
+                font-family: 'Courier New', monospace;
+                transition: all 0.3s ease;
+            }
+            
+            /* 滚动模式激活时的样式 */
+            .scroll-mode-indicator.active .indicator-box {
+                border-color: #00ff00;
+                background: rgba(0, 255, 0, 0.2);
+                color: #00ff00;
+                box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+            }
+            
+            /* 普通焦点样式保持绿色主题 */
+            .keyboard-focus {
+                outline: 2px solid #00ff00;
+                background: rgba(0, 255, 0, 0.1);
             }
         `;
         document.head.appendChild(style);
+        
+        // 为档案区域添加鼠标滚轮事件监听
+        this.setupMouseWheelEvents();
     }
     
     // 设置事件订阅
@@ -560,31 +615,23 @@ class IdentityView {
     setFocus(element, type) {
         if (!element) return;
         
-        // 移除所有现有的焦点
-        this.domUtils.getAll('.keyboard-focus').forEach(el => {
-            this.domUtils.removeClass(el, 'keyboard-focus');
-        });
-        
-        // 添加焦点样式
         this.domUtils.addClass(element, 'keyboard-focus');
         
-        // 根据元素类型添加特定的焦点样式
+        // 根据类型设置特定样式
         switch (type) {
             case 'identity-file':
-                this.domUtils.addClass(element, 'keyboard-focus-file');
-                break;
             case 'disguise-display':
-                this.domUtils.addClass(element, 'keyboard-focus-display');
+                this.domUtils.addClass(element, 'file-focus');
                 break;
             case 'nav-button':
-                this.domUtils.addClass(element, 'keyboard-focus-button');
+                this.domUtils.addClass(element, 'button-focus');
                 break;
             case 'action-button':
-                this.domUtils.addClass(element, 'keyboard-focus-action');
+                this.domUtils.addClass(element, 'action-focus');
                 break;
         }
         
-        // 确保元素在视口内可见
+        // 确保元素在视野内
         this.scrollIntoViewIfNeeded(element);
     }
 
@@ -1095,6 +1142,58 @@ class IdentityView {
             `;
         } catch (error) {
             console.error("更新玩家统计数据显示失败:", error);
+        }
+    }
+
+    // 新增方法 - 设置鼠标滚轮事件
+    setupMouseWheelEvents() {
+        const identityFile = this.domUtils.get('#identityFile');
+        const currentDisguiseDisplay = this.domUtils.get('#currentDisguiseDisplay');
+        
+        // 为基本档案添加鼠标滚轮支持
+        if (identityFile) {
+            identityFile.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const scrollStep = e.deltaY > 0 ? 120 : -120;
+                identityFile.scrollBy({
+                    top: scrollStep,
+                    behavior: 'smooth'
+                });
+            });
+        }
+        
+        // 为伪装档案添加鼠标滚轮支持
+        if (currentDisguiseDisplay) {
+            currentDisguiseDisplay.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const scrollStep = e.deltaY > 0 ? 120 : -120;
+                currentDisguiseDisplay.scrollBy({
+                    top: scrollStep,
+                    behavior: 'smooth'
+                });
+            });
+        }
+    }
+
+    // 新增方法 - 设置滚动模式指示器状态
+    setScrollModeIndicator(fileType, active) {
+        let indicatorId;
+        
+        if (fileType === 'identity-file') {
+            indicatorId = '#basicScrollIndicator';
+        } else if (fileType === 'disguise-display') {
+            indicatorId = '#disguiseScrollIndicator';
+        } else {
+            return;
+        }
+        
+        const indicator = this.domUtils.get(indicatorId);
+        if (!indicator) return;
+        
+        if (active) {
+            this.domUtils.addClass(indicator, 'active');
+        } else {
+            this.domUtils.removeClass(indicator, 'active');
         }
     }
 }

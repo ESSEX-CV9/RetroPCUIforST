@@ -36,6 +36,10 @@ class IdentityController {
             page: 'basic', // 最后访问的页面
             focusMemory: null // 最后的焦点状态
         };
+        
+        // 新增：档案滚动模式状态
+        this.fileScrollMode = false; // 是否处于档案滚动模式
+        this.scrollModeElement = null; // 当前滚动模式的元素
     }
     
     // 初始化控制器
@@ -637,24 +641,22 @@ class IdentityController {
     navigateRow(direction) {
         if (this.focusRows.length === 0) return;
         
-        const currentElement = this.getCurrentFocusElement();
-        // 若在可滚动档案区，则滚动而不改变行
-        if (currentElement && (currentElement.type === 'identity-file' || currentElement.type === 'disguise-display')) {
-            const scrollStep = 120; // 每次滚动像素，可自行调整
-            currentElement.element.scrollBy({
+        // 如果处于档案滚动模式，直接滚动
+        if (this.fileScrollMode && this.scrollModeElement) {
+            const scrollStep = 120;
+            this.scrollModeElement.scrollBy({
                 top: scrollStep * direction,
                 behavior: 'smooth'
             });
             return;
         }
         
-        // 以下保留原本的行切换逻辑
+        // 正常的行间导航逻辑
         const newRow = this.currentRow + direction;
         
         if (newRow >= 0 && newRow < this.focusRows.length) {
             this.currentRow = newRow;
             
-            // 调整列位置，确保不超出当前行的元素数量
             const currentRowElements = this.focusRows[this.currentRow].elements;
             if (this.currentCol >= currentRowElements.length) {
                 this.currentCol = Math.max(0, currentRowElements.length - 1);
@@ -683,6 +685,9 @@ class IdentityController {
 
     // 更新焦点显示
     updateFocus() {
+        // 如果处于滚动模式，不更新焦点
+        if (this.fileScrollMode) return;
+        
         // 清除所有焦点
         this.view.clearAllFocus();
         
@@ -851,6 +856,13 @@ class IdentityController {
         const currentElement = this.getCurrentFocusElement();
         if (!currentElement) return;
         
+        // 如果当前选中的是档案区域，进入滚动模式
+        if (currentElement.type === 'identity-file' || currentElement.type === 'disguise-display') {
+            this.enterFileScrollMode(currentElement.element);
+            if (this.audio) this.audio.play('functionButton');
+            return;
+        }
+        
         // 保存当前焦点信息
         const focusMemory = this.saveFocusMemory();
         
@@ -863,7 +875,6 @@ class IdentityController {
                     await this.navigateToPage('disguise');
                 } else {
                     currentElement.element.click();
-                    // 对于其他导航按钮，延迟重新初始化并恢复焦点
                     setTimeout(() => {
                         this.initializeFocusableElements();
                         this.restoreFocusFromMemory(focusMemory, this.currentPage);
@@ -872,7 +883,6 @@ class IdentityController {
                 break;
             case 'action-button':
                 currentElement.element.click();
-                // 延迟重新初始化焦点，尝试保持在相同位置
                 setTimeout(() => {
                     this.initializeFocusableElements();
                     this.restoreFocusFromMemory(focusMemory, this.currentPage);
@@ -887,6 +897,11 @@ class IdentityController {
     // 修改页面导航方法，实现焦点停留
     async navigateToPage(page) {
         if (this.currentPage === page) return;
+        
+        // 如果当前处于滚动模式，先退出
+        if (this.fileScrollMode) {
+            this.exitFileScrollMode();
+        }
         
         const previousPage = this.currentPage;
         
@@ -1068,7 +1083,14 @@ class IdentityController {
 
     // 处理Escape键
     handleEscape() {
-        // 如果当前在编辑伪装视图，返回到当前伪装视图
+        // 如果处于档案滚动模式，退出滚动模式
+        if (this.fileScrollMode) {
+            this.exitFileScrollMode();
+            if (this.audio) this.audio.play('functionButton');
+            return;
+        }
+        
+        // 原有的Escape处理逻辑
         const editView = this.domUtils.get('#disguiseEditView');
         if (editView && editView.style.display !== 'none') {
             this.view.showCurrentDisguiseView();
@@ -1315,5 +1337,59 @@ class IdentityController {
         }
         
         console.log(`鼠标翻页: ${fileType} ${direction > 0 ? '下一页' : '上一页'}`);
+    }
+
+    // 新增：进入档案滚动模式
+    enterFileScrollMode(element) {
+        this.fileScrollMode = true;
+        this.scrollModeElement = element;
+        
+        // 确定当前档案类型并激活对应指示器
+        const elementId = element.id;
+        let fileType;
+        
+        if (elementId === 'identityFile') {
+            fileType = 'identity-file';
+        } else if (elementId === 'currentDisguiseDisplay') {
+            fileType = 'disguise-display';
+        }
+        
+        if (fileType) {
+            this.view.setScrollModeIndicator(fileType, true);
+        }
+        
+        // 保持正常的焦点样式
+        this.view.clearAllFocus();
+        this.view.setFocus(element, fileType);
+        
+        console.log('进入档案滚动模式');
+    }
+
+    // 新增：退出档案滚动模式
+    exitFileScrollMode() {
+        // 获取当前滚动元素的类型
+        let fileType;
+        if (this.scrollModeElement) {
+            const elementId = this.scrollModeElement.id;
+            
+            if (elementId === 'identityFile') {
+                fileType = 'identity-file';
+            } else if (elementId === 'currentDisguiseDisplay') {
+                fileType = 'disguise-display';
+            }
+            
+            // 关闭对应的指示器
+            if (fileType) {
+                this.view.setScrollModeIndicator(fileType, false);
+            }
+        }
+        
+        this.fileScrollMode = false;
+        this.scrollModeElement = null;
+        
+        // 恢复正常焦点
+        this.updateFocus();
+        
+        console.log('退出档案滚动模式');
     }
 }

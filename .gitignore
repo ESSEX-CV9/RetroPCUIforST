@@ -21,3 +21,5 @@ commit_mapping.txt
 接口说明文档/generate.d.ts
 接口说明文档/lorebook_entry.d.ts
 接口说明文档/lorebook.d.ts
+IDENTITY_SCROLL_CHANGES.md
+test_identity_scroll.html

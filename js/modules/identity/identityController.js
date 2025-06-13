@@ -29,11 +29,7 @@ class IdentityController {
         this.currentRow = 0; // 当前行
         this.currentCol = 0; // 当前列
         
-        // 档案分页相关属性
-        this.currentFilePage = 1;
-        this.totalFilePages = 3;
-        this.currentDisguiseFilePage = 1;
-        this.totalDisguiseFilePages = 3;
+        // 档案显示相关属性（保留用于兼容性，但不再使用分页逻辑）
         
         // 新增：页面状态记忆
         this.lastPageState = {
@@ -470,7 +466,6 @@ class IdentityController {
         if (!identityFile) return;
         
         this.currentIdentityType = identityTypeSuffix;
-        this.currentFilePage = 1; // 切换身份时重置到第一页
 
         let identityData = null;
         let isSecret = false;
@@ -484,8 +479,8 @@ class IdentityController {
                 isSecret = false;
             }
             
-            // 使用异步的分页显示方法
-            await this.view.updateFilePageDisplay(identityData, this.currentFilePage, this.totalFilePages, isSecret, identityTypeSuffix);
+            // 使用异步的显示方法
+            await this.view.updateFilePageDisplay(identityData, 1, 1, isSecret, identityTypeSuffix);
             
             // 设置国籍特定样式
             if (identityData) {
@@ -642,6 +637,18 @@ class IdentityController {
     navigateRow(direction) {
         if (this.focusRows.length === 0) return;
         
+        const currentElement = this.getCurrentFocusElement();
+        // 若在可滚动档案区，则滚动而不改变行
+        if (currentElement && (currentElement.type === 'identity-file' || currentElement.type === 'disguise-display')) {
+            const scrollStep = 120; // 每次滚动像素，可自行调整
+            currentElement.element.scrollBy({
+                top: scrollStep * direction,
+                behavior: 'smooth'
+            });
+            return;
+        }
+        
+        // 以下保留原本的行切换逻辑
         const newRow = this.currentRow + direction;
         
         if (newRow >= 0 && newRow < this.focusRows.length) {
@@ -664,23 +671,13 @@ class IdentityController {
         const currentRowData = this.focusRows[this.currentRow];
         if (!currentRowData) return;
         
-        // 检查当前行是否支持翻页
-        if (currentRowData.pageNavigation) {
-            // 档案区域翻页
-            if (currentRowData.pageNavigation === 'identity') {
-                this.navigateFilePage(direction);
-            } else if (currentRowData.pageNavigation === 'disguise') {
-                this.navigateDisguiseFilePage(direction);
-            }
-        } else {
-            // 普通的列间导航
-            const newCol = this.currentCol + direction;
-            const elements = currentRowData.elements;
-            
-            if (newCol >= 0 && newCol < elements.length) {
-                this.currentCol = newCol;
-                this.updateFocus();
-            }
+        // 普通的列间导航
+        const newCol = this.currentCol + direction;
+        const elements = currentRowData.elements;
+        
+        if (newCol >= 0 && newCol < elements.length) {
+            this.currentCol = newCol;
+            this.updateFocus();
         }
     }
 
@@ -742,7 +739,6 @@ class IdentityController {
         if (identityFile) {
             this.focusRows.push({
                 row: 0,
-                pageNavigation: 'identity', // 标记支持翻页
                 elements: [{ element: identityFile, type: 'identity-file' }]
             });
         }
@@ -797,7 +793,6 @@ class IdentityController {
         if (currentDisguiseDisplay) {
             this.focusRows.push({
                 row: rowIndex++,
-                pageNavigation: 'disguise', // 标记支持翻页
                 elements: [{ element: currentDisguiseDisplay, type: 'disguise-display' }]
             });
         }
@@ -903,11 +898,9 @@ class IdentityController {
         if (page === 'basic') {
             this.view.showBasicInfoPage();
             this.currentIdentityType = 'cover';
-            this.currentFilePage = 1;
             await this.switchIdentityView('cover');
         } else if (page === 'disguise') {
             this.view.showDisguisePage();
-            this.currentDisguiseFilePage = 1;
             this.view.showCurrentDisguiseView();
             await this.updateDisguiseFilePageDisplay();
         }
@@ -1102,8 +1095,8 @@ class IdentityController {
                 isSecret = false;
             }
             
-            // 更新档案显示（view会自动更新totalFilePages）
-            this.view.updateFilePageDisplay(identityData, this.currentFilePage, this.totalFilePages, isSecret, this.currentIdentityType);
+            // 更新档案显示
+            this.view.updateFilePageDisplay(identityData, 1, 1, isSecret, this.currentIdentityType);
             
         } catch (error) {
             console.error(`更新档案页面显示失败:`, error);
@@ -1117,8 +1110,8 @@ class IdentityController {
         try {
             const disguiseData = await this.model.getDisguiseIdentity();
             
-            // 使用与基本档案相同的分页显示逻辑
-            this.view.updateDisguiseFilePageDisplay(disguiseData, this.currentDisguiseFilePage, this.totalDisguiseFilePages);
+            // 使用与基本档案相同的显示逻辑
+            this.view.updateDisguiseFilePageDisplay(disguiseData, 1, 1);
             
         } catch (error) {
             console.error(`更新伪装档案页面显示失败:`, error);
@@ -1154,8 +1147,6 @@ class IdentityController {
         this.lastPageState = {
             page: this.currentPage,
             focusMemory: this.saveFocusMemory(),
-            filePage: this.currentFilePage,
-            disguiseFilePage: this.currentDisguiseFilePage,
             identityType: this.currentIdentityType
         };
         
@@ -1182,15 +1173,12 @@ class IdentityController {
             
             if (targetPage === 'basic') {
                 this.view.showBasicInfoPage();
-                // 恢复档案页面和身份类型
+                // 恢复身份类型
                 this.currentIdentityType = this.lastPageState.identityType || 'cover';
-                this.currentFilePage = this.lastPageState.filePage || 1;
                 await this.switchIdentityView(this.currentIdentityType);
             } else if (targetPage === 'disguise') {
                 this.view.showDisguisePage();
                 this.view.showCurrentDisguiseView();
-                // 恢复伪装档案页面
-                this.currentDisguiseFilePage = this.lastPageState.disguiseFilePage || 1;
                 await this.updateDisguiseFilePageDisplay();
             }
         }

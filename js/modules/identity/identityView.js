@@ -845,15 +845,53 @@ class IdentityView {
         return html;
     }
 
-    // 修改 generateSkillsPage 为同步方法，通过回调处理异步数据
-    generateSkillsPage(identity, isSecret, identityType) {
+    // 修复 generateSkillsPage 方法，改为真正的异步方法
+    async generateSkillsPage(identity, isSecret, identityType) {
         if (!identity) return '<p class="no-identity">身份不明</p>';
         
         let headerTitle = "技能评估档案";
         let headerSubtitle = `评估日期: ${this.getCurrentTimeString()}`;
         let stampText = isSecret ? "内部资料" : "标准评估";
         
-        // 返回包含占位符的HTML，稍后通过异步更新
+        let skillsHtml = '';
+        
+        try {
+            // 直接在这里同步获取技能数据
+            const identityService = this.serviceLocator.get('identity');
+            if (identityService) {
+                const skills = await identityService.getUserSkills();
+                if (skills && Object.keys(skills).length > 0) {
+                    // 生成技能显示行
+                    for (const [skillName, skillData] of Object.entries(skills)) {
+                        const progressPercent = skillData.maxExp ? 
+                            Math.round((skillData.experience / skillData.maxExp) * 100) : 100;
+                        
+                        skillsHtml += `
+                            <div class="file-row">
+                                <div class="file-label">${skillName}:</div>
+                                <div class="file-value">${skillData.level} (${skillData.experience}/${skillData.maxExp || '∞'})</div>
+                            </div>`;
+                    }
+                } else {
+                    skillsHtml = `
+                        <div class="file-row"><div class="file-label">状态:</div><div class="file-value">无技能数据</div></div>
+                        <div class="file-row"><div class="file-label">备注:</div><div class="file-value">技能系统未初始化</div></div>
+                    `;
+                }
+            } else {
+                skillsHtml = `
+                    <div class="file-row"><div class="file-label">错误:</div><div class="file-value">身份服务未可用</div></div>
+                    <div class="file-row"><div class="file-label">备注:</div><div class="file-value">请检查系统配置</div></div>
+                `;
+            }
+        } catch (error) {
+            console.error("生成技能页面时获取技能数据失败:", error);
+            skillsHtml = `
+                <div class="file-row"><div class="file-label">状态:</div><div class="file-value">加载失败</div></div>
+                <div class="file-row"><div class="file-label">错误:</div><div class="file-value">${error.message}</div></div>
+            `;
+        }
+        
         let html = `
         <div class="file-header">
             <div class="file-title">${headerTitle}</div>
@@ -862,65 +900,12 @@ class IdentityView {
         <div class="file-content">
             <div class="file-section">
                 <div class="section-title">专业技能</div>
-                <div id="skills-content" class="skills-loading">
-                    <div class="file-row"><div class="file-label">状态:</div><div class="file-value">加载中...</div></div>
-                    <div class="file-row"><div class="file-label">备注:</div><div class="file-value">正在获取技能数据</div></div>
-                </div>
+                ${skillsHtml}
             </div>
         </div>
         <div class="file-stamp">${stampText}</div>`;
         
-        // 异步加载技能数据并更新显示
-        this.loadSkillsDataAsync();
-        
         return html;
-    }
-
-    // 新增：异步加载技能数据的方法
-    async loadSkillsDataAsync() {
-        try {
-            const identityService = this.serviceLocator.get('identity');
-            if (!identityService) {
-                this.updateSkillsContent('<div class="file-row"><div class="file-label">错误:</div><div class="file-value">身份服务未可用</div></div>');
-                return;
-            }
-            
-            const skills = await identityService.getUserSkills();
-            if (skills && Object.keys(skills).length > 0) {
-                let skillsHtml = '';
-                for (const [skillName, skillData] of Object.entries(skills)) {
-                    const progressPercent = skillData.maxExp ? 
-                        Math.round((skillData.experience / skillData.maxExp) * 100) : 100;
-                    
-                    skillsHtml += `
-                        <div class="file-row">
-                            <div class="file-label">${skillName}:</div>
-                            <div class="file-value">${skillData.level} (${skillData.experience}/${skillData.maxExp || '∞'})</div>
-                        </div>`;
-                }
-                this.updateSkillsContent(skillsHtml);
-            } else {
-                this.updateSkillsContent(`
-                    <div class="file-row"><div class="file-label">状态:</div><div class="file-value">无技能数据</div></div>
-                    <div class="file-row"><div class="file-label">备注:</div><div class="file-value">技能系统未初始化</div></div>
-                `);
-            }
-        } catch (error) {
-            console.error("加载技能数据失败:", error);
-            this.updateSkillsContent(`
-                <div class="file-row"><div class="file-label">状态:</div><div class="file-value">加载失败</div></div>
-                <div class="file-row"><div class="file-label">错误:</div><div class="file-value">${error.message}</div></div>
-            `);
-        }
-    }
-
-    // 新增：更新技能内容显示的方法
-    updateSkillsContent(skillsHtml) {
-        const skillsContent = this.domUtils.get('#skills-content');
-        if (skillsContent) {
-            skillsContent.innerHTML = skillsHtml;
-            skillsContent.classList.remove('skills-loading');
-        }
     }
 
     // 更新伪装档案分页显示（复用基本档案的逻辑）

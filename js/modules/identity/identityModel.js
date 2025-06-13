@@ -46,10 +46,39 @@ class IdentityModel {
             DISGUISE: 'disguise'
         };
         
+        // 添加简单的身份缓存，避免频繁获取
+        this.identityCache = {
+            real: null,
+            cover: null,
+            disguise: null,
+            lastUpdate: null,
+            cacheTimeout: 5000 // 5秒缓存，较短避免数据不同步
+        };
+        
         // 只有在storage存在时才初始化本地身份
         if (this.storage) {
             this.initLocalIdentities();
         }
+    }
+    
+    // 检查缓存是否有效
+    _isIdentityCacheValid() {
+        return this.identityCache.lastUpdate && 
+               (Date.now() - this.identityCache.lastUpdate) < this.identityCache.cacheTimeout;
+    }
+
+    // 更新身份缓存
+    _updateIdentityCache(type, identity) {
+        this.identityCache[type] = identity;
+        this.identityCache.lastUpdate = Date.now();
+    }
+
+    // 清除身份缓存
+    _clearIdentityCache() {
+        this.identityCache.real = null;
+        this.identityCache.cover = null;
+        this.identityCache.disguise = null;
+        this.identityCache.lastUpdate = null;
     }
     
     // 默认身份获取方法
@@ -174,6 +203,11 @@ class IdentityModel {
     
     // 异步身份获取方法
     async getRealIdentity() {
+        // 检查缓存
+        if (this._isIdentityCacheValid() && this.identityCache.real !== null) {
+            return this.identityCache.real;
+        }
+        
         try {
             const controller = this._getLorebookController();
             
@@ -185,9 +219,10 @@ class IdentityModel {
                 // 尝试从世界书获取身份，提供默认值以确保条目被创建
                 const identity = await controller.getPlayerIdentity(suffix, this.getDefaultRealIdentity());
                 
-                // 如果成功获取且不为null，同步到本地存储
+                // 如果成功获取且不为null，同步到本地存储和缓存
                 if (identity && identity !== null) {
                     this._saveLocalIdentity(this.IDENTITY_TYPES_KEY.REAL, identity);
+                    this._updateIdentityCache('real', identity);
                     return identity;
                 }
             }
@@ -199,15 +234,23 @@ class IdentityModel {
         const localIdentity = this._getLocalIdentity(this.IDENTITY_TYPES_KEY.REAL);
         if (localIdentity) {
             console.log("身份系统: 从本地存储获取真实身份");
+            this._updateIdentityCache('real', localIdentity);
             return localIdentity;
         }
         
         // 都失败时才使用默认值
         console.log("身份系统: 使用默认真实身份");
-        return this.getDefaultRealIdentity();
+        const defaultIdentity = this.getDefaultRealIdentity();
+        this._updateIdentityCache('real', defaultIdentity);
+        return defaultIdentity;
     }
 
     async getCoverIdentity() {
+        // 检查缓存
+        if (this._isIdentityCacheValid() && this.identityCache.cover !== null) {
+            return this.identityCache.cover;
+        }
+        
         try {
             const controller = this._getLorebookController();
             
@@ -219,9 +262,10 @@ class IdentityModel {
                 // 尝试从世界书获取身份，提供默认值以确保条目被创建
                 const identity = await controller.getPlayerIdentity(suffix, this.getDefaultCoverIdentity());
                 
-                // 如果成功获取且不为null，同步到本地存储
+                // 如果成功获取且不为null，同步到本地存储和缓存
                 if (identity && identity !== null) {
                     this._saveLocalIdentity(this.IDENTITY_TYPES_KEY.COVER, identity);
+                    this._updateIdentityCache('cover', identity);
                     return identity;
                 }
             }
@@ -233,12 +277,15 @@ class IdentityModel {
         const localIdentity = this._getLocalIdentity(this.IDENTITY_TYPES_KEY.COVER);
         if (localIdentity) {
             console.log("身份系统: 从本地存储获取表面身份");
+            this._updateIdentityCache('cover', localIdentity);
             return localIdentity;
         }
         
         // 都失败时才使用默认值
         console.log("身份系统: 使用默认表面身份");
-        return this.getDefaultCoverIdentity();
+        const defaultIdentity = this.getDefaultCoverIdentity();
+        this._updateIdentityCache('cover', defaultIdentity);
+        return defaultIdentity;
     }
 
     async getDisguiseIdentity() {

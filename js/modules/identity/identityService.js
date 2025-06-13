@@ -10,6 +10,15 @@ class IdentityService {
         this.controller = null;
         this.model = null;
         
+        // 新增：数据缓存
+        this.cache = {
+            userStats: null,
+            userSkills: null,
+            userData: null,
+            cacheTime: null,
+            cacheTimeout: 30000 // 30秒缓存
+        };
+        
         // 初始化标志
         this.initialized = false;
         
@@ -62,6 +71,12 @@ class IdentityService {
                 // 监听伪装被识破事件
                 this.eventBus.on('disguiseBlown', () => {
                     console.log("身份服务检测到伪装被识破");
+                });
+                
+                // 监听用户数据变更事件，清除缓存
+                this.eventBus.on('userDataChanged', () => {
+                    this._clearCache();
+                    console.log("身份服务: 用户数据变更，已清除缓存");
                 });
             }
         } catch (error) {
@@ -322,12 +337,20 @@ class IdentityService {
             return null;
         }
         
+        // 检查缓存
+        if (this._isCacheValid() && this.cache.userStats) {
+            console.log("身份服务: 从缓存获取统计数据");
+            return this.cache.userStats;
+        }
+        
         try {
-            // 通过世界书控制器获取用户数据
             const controller = this._getLorebookController();
             if (controller && controller.getUserData) {
                 const userData = await controller.getUserData();
-                return userData ? userData.stats : null;
+                if (userData) {
+                    this._updateCache(userData);
+                    return userData.stats;
+                }
             }
             return null;
         } catch (error) {
@@ -369,11 +392,20 @@ class IdentityService {
             return null;
         }
         
+        // 检查缓存
+        if (this._isCacheValid() && this.cache.userSkills) {
+            console.log("身份服务: 从缓存获取技能数据");
+            return this.cache.userSkills;
+        }
+        
         try {
             const controller = this._getLorebookController();
             if (controller && controller.getUserData) {
                 const userData = await controller.getUserData();
-                return userData ? userData.skills : null;
+                if (userData) {
+                    this._updateCache(userData);
+                    return userData.skills;
+                }
             }
             return null;
         } catch (error) {
@@ -416,10 +448,20 @@ class IdentityService {
             return null;
         }
         
+        // 检查缓存
+        if (this._isCacheValid() && this.cache.userData) {
+            console.log("身份服务: 从缓存获取用户数据");
+            return this.cache.userData;
+        }
+        
         try {
             const controller = this._getLorebookController();
             if (controller && controller.getUserData) {
-                return await controller.getUserData();
+                const userData = await controller.getUserData();
+                if (userData) {
+                    this._updateCache(userData);
+                }
+                return userData;
             }
             return null;
         } catch (error) {
@@ -445,5 +487,33 @@ class IdentityService {
         }
         
         return null;
+    }
+
+    /**
+     * 检查缓存是否有效
+     */
+    _isCacheValid() {
+        if (!this.cache.cacheTime) return false;
+        return (Date.now() - this.cache.cacheTime) < this.cache.cacheTimeout;
+    }
+
+    /**
+     * 清除缓存
+     */
+    _clearCache() {
+        this.cache.userStats = null;
+        this.cache.userSkills = null;
+        this.cache.userData = null;
+        this.cache.cacheTime = null;
+    }
+
+    /**
+     * 更新缓存
+     */
+    _updateCache(userData) {
+        this.cache.userData = userData;
+        this.cache.userStats = userData ? userData.stats : null;
+        this.cache.userSkills = userData ? userData.skills : null;
+        this.cache.cacheTime = Date.now();
     }
 }

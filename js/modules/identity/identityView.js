@@ -232,7 +232,7 @@ class IdentityView {
                 <button id="basicInfoButton" class="terminal-button active">基本档案</button>
                 <button id="disguiseButton" class="terminal-button">伪装系统</button>
             </div>
-            <div class="keyboard-hints">Q/E:切换页面 ↑/↓:导航 回车:进入滚动 ESC:退出滚动 F1:终端</div>
+            <div class="keyboard-hints">Q/E:切页 ↑/↓:导航 回车:选择 ESC:返回 F1:终端</div>
         `;
     }
     

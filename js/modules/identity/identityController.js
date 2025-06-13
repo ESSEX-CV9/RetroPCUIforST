@@ -38,8 +38,21 @@ class IdentityController {
         };
         
         // 新增：档案滚动模式状态
-        this.fileScrollMode = false; // 是否处于档案滚动模式
-        this.scrollModeElement = null; // 当前滚动模式的元素
+        this.fileScrollMode = false;
+        this.scrollModeElement = null;
+        
+        // 新增：按键状态和持续滚动控制
+        this.keyStates = {
+            ArrowUp: false,
+            ArrowDown: false,
+            KeyW: false,
+            KeyS: false
+        };
+        this.scrollAnimation = null; // 滚动动画ID
+        this.scrollDirection = 0; // 滚动方向：-1向上，1向下，0停止
+        this.scrollSpeed = 2; // 基础滚动速度
+        this.scrollAcceleration = 1.05; // 滚动加速度
+        this.currentScrollSpeed = this.scrollSpeed; // 当前滚动速度
     }
     
     // 初始化控制器
@@ -454,8 +467,13 @@ class IdentityController {
     
     // 隐藏身份界面
     hide() {
-        // 保存当前状态
-        this.saveCurrentState();
+        // 停止持续滚动
+        this.stopContinuousScroll();
+        
+        // 如果处于滚动模式，退出
+        if (this.fileScrollMode) {
+            this.exitFileScrollMode();
+        }
         
         this.view.hide();
         this.isVisible = false;
@@ -557,22 +575,58 @@ class IdentityController {
         if (this.keyboardEventListener) {
             document.removeEventListener('keydown', this.keyboardEventListener, true);
         }
+        if (this.keyupEventListener) {
+            document.removeEventListener('keyup', this.keyupEventListener, true);
+        }
 
-        // 创建键盘事件处理器
+        // 创建绑定到当前实例的事件处理器
         this.keyboardEventListener = (e) => {
-            this.handleKeyboardNavigation(e);
+            this.handleKeyDown(e);
+        };
+        
+        this.keyupEventListener = (e) => {
+            this.handleKeyUp(e);
         };
 
-        // 使用捕获阶段绑定键盘事件，确保优先级
+        // 绑定事件
         document.addEventListener('keydown', this.keyboardEventListener, true);
+        document.addEventListener('keyup', this.keyupEventListener, true);
+        
+        console.log('键盘事件监听器已设置');
     }
 
     // 处理键盘导航 - 重构为行列导航
-    handleKeyboardNavigation(e) {
+    handleKeyDown(e) {
         if (!this.isVisible || !this.keyboardNavigationEnabled) return;
         
         e.stopPropagation();
         e.stopImmediatePropagation();
+        
+        // 处理持续滚动的按键
+        if (this.fileScrollMode && this.isScrollKey(e.code)) {
+            e.preventDefault();
+            
+            // 防止重复处理（按住时的重复事件）
+            if (e.repeat) return;
+            
+            // 如果按键状态发生变化，更新状态并开始滚动
+            if (!this.keyStates[e.code]) {
+                this.keyStates[e.code] = true;
+                this.updateScrollDirection();
+                
+                console.log(`按键按下: ${e.code}, 当前方向: ${this.scrollDirection}`);
+                
+                // 如果之前没有滚动，开始新的滚动
+                if (!this.scrollAnimation) {
+                    this.startContinuousScroll();
+                    console.log('开始新的滚动动画');
+                }
+            }
+            return;
+        }
+        
+        // 防止重复触发（按住按键时）
+        if (e.repeat) return;
         
         switch (e.key) {
             case 'F1':
@@ -581,42 +635,65 @@ class IdentityController {
             case 'q':
             case 'Q':
                 e.preventDefault();
-                // 使用快速切换方法
                 this.quickNavigateToPage('basic');
                 break;
             case 'e':
             case 'E':
                 e.preventDefault();
-                // 使用快速切换方法
                 this.quickNavigateToPage('disguise');
                 break;
             
-            // 上下键：行间导航
+            // 上下键：行间导航（非滚动模式）或滚动（滚动模式）
             case 'w':
             case 'W':
             case 'ArrowUp':
                 e.preventDefault();
-                this.navigateRow(-1);
+                if (!this.fileScrollMode) {
+                    this.navigateRow(-1);
+                }
                 break;
             case 's':
             case 'S':
             case 'ArrowDown':
                 e.preventDefault();
-                this.navigateRow(1);
+                if (!this.fileScrollMode) {
+                    this.navigateRow(1);
+                }
                 break;
             
-            // 左右键：列内导航或翻页
+            // 左右键：在滚动模式和正常模式下有不同行为
             case 'a':
             case 'A':
             case 'ArrowLeft':
                 e.preventDefault();
-                this.navigateLeftRight(-1);
+                if (this.fileScrollMode) {
+                    // 滚动模式下：退出滚动模式
+                    this.exitFileScrollMode();
+                    if (this.audio) this.audio.play('functionButton');
+                } else {
+                    // 正常模式下：列间导航
+                    this.navigateLeftRight(-1);
+                }
                 break;
             case 'd':
             case 'D':
             case 'ArrowRight':
                 e.preventDefault();
-                this.navigateLeftRight(1);
+                if (this.fileScrollMode) {
+                    // 滚动模式下：不做任何操作（或者可以添加其他功能）
+                    // 保持在滚动模式中
+                } else {
+                    // 正常模式下：检查是否在档案区域，如果是则进入滚动模式
+                    const currentElement = this.getCurrentFocusElement();
+                    if (currentElement && (currentElement.type === 'identity-file' || currentElement.type === 'disguise-display')) {
+                        // 在档案区域，进入滚动模式
+                        this.enterFileScrollMode(currentElement.element);
+                        if (this.audio) this.audio.play('functionButton');
+                    } else {
+                        // 不在档案区域，正常的列间导航
+                        this.navigateLeftRight(1);
+                    }
+                }
                 break;
             
             case ' ':
@@ -631,7 +708,7 @@ class IdentityController {
                 e.preventDefault();
                 this.handleEscape();
                 break;
-                
+            
             default:
                 return;
         }
@@ -641,17 +718,7 @@ class IdentityController {
     navigateRow(direction) {
         if (this.focusRows.length === 0) return;
         
-        // 如果处于档案滚动模式，直接滚动
-        if (this.fileScrollMode && this.scrollModeElement) {
-            const scrollStep = 120;
-            this.scrollModeElement.scrollBy({
-                top: scrollStep * direction,
-                behavior: 'smooth'
-            });
-            return;
-        }
-        
-        // 正常的行间导航逻辑
+        // 正常的行间导航逻辑（滚动模式下不会调用到这里）
         const newRow = this.currentRow + direction;
         
         if (newRow >= 0 && newRow < this.focusRows.length) {
@@ -857,6 +924,7 @@ class IdentityController {
         if (!currentElement) return;
         
         // 如果当前选中的是档案区域，进入滚动模式
+        // 注意：现在可以通过 Enter 键或右方向键/D键进入滚动模式
         if (currentElement.type === 'identity-file' || currentElement.type === 'disguise-display') {
             this.enterFileScrollMode(currentElement.element);
             if (this.audio) this.audio.play('functionButton');
@@ -1077,13 +1145,32 @@ class IdentityController {
     // 禁用键盘导航
     disableKeyboardNavigation() {
         this.keyboardNavigationEnabled = false;
+        
+        // 停止持续滚动
+        this.stopContinuousScroll();
+        
+        // 重置按键状态
+        Object.keys(this.keyStates).forEach(key => {
+            this.keyStates[key] = false;
+        });
+        this.scrollDirection = 0;
+        
+        // 移除事件监听器
+        if (this.keyboardEventListener) {
+            document.removeEventListener('keydown', this.keyboardEventListener, true);
+        }
+        if (this.keyupEventListener) {
+            document.removeEventListener('keyup', this.keyupEventListener, true);
+        }
+        
         this.view.clearAllFocus();
-        console.log("身份系统: 键盘导航已禁用");
+        console.log("身份系统: 键盘导航已禁用，滚动状态已重置");
     }
 
     // 处理Escape键
     handleEscape() {
         // 如果处于档案滚动模式，退出滚动模式
+        // 注意：现在可以通过 Esc 键或左方向键/A键退出滚动模式
         if (this.fileScrollMode) {
             this.exitFileScrollMode();
             if (this.audio) this.audio.play('functionButton');
@@ -1367,6 +1454,19 @@ class IdentityController {
 
     // 新增：退出档案滚动模式
     exitFileScrollMode() {
+        console.log('正在退出文件滚动模式...');
+        
+        // 停止持续滚动
+        this.stopContinuousScroll();
+        
+        // 重置所有按键状态
+        Object.keys(this.keyStates).forEach(key => {
+            this.keyStates[key] = false;
+        });
+        this.scrollDirection = 0;
+        
+        console.log('按键状态已重置:', this.keyStates);
+        
         // 获取当前滚动元素的类型
         let fileType;
         if (this.scrollModeElement) {
@@ -1390,6 +1490,108 @@ class IdentityController {
         // 恢复正常焦点
         this.updateFocus();
         
-        console.log('退出档案滚动模式');
+        console.log('退出档案滚动模式完成');
+    }
+
+    // 新增辅助方法
+    isScrollKey(code) {
+        return ['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(code);
+    }
+
+    updateScrollDirection() {
+        let direction = 0;
+        
+        // 检查向上的按键
+        if (this.keyStates.ArrowUp || this.keyStates.KeyW) {
+            direction -= 1;
+        }
+        
+        // 检查向下的按键
+        if (this.keyStates.ArrowDown || this.keyStates.KeyS) {
+            direction += 1;
+        }
+        
+        const oldDirection = this.scrollDirection;
+        this.scrollDirection = direction;
+        
+        if (oldDirection !== direction) {
+            console.log(`滚动方向变化: ${oldDirection} -> ${direction}`);
+            console.log('当前按键状态:', this.keyStates);
+        }
+    }
+
+    startContinuousScroll() {
+        // 如果已经在滚动中，不重新启动
+        if (this.scrollAnimation) {
+            console.log('滚动动画已在运行中');
+            return;
+        }
+        
+        // 重置滚动速度
+        this.currentScrollSpeed = this.scrollSpeed;
+        
+        console.log('启动持续滚动动画');
+        
+        const scroll = () => {
+            // 检查是否应该继续滚动
+            if (this.scrollDirection === 0 || !this.fileScrollMode || !this.scrollModeElement) {
+                console.log('滚动条件不满足，停止滚动');
+                this.stopContinuousScroll();
+                return;
+            }
+            
+            // 执行滚动
+            this.scrollModeElement.scrollBy({
+                top: this.currentScrollSpeed * this.scrollDirection,
+                behavior: 'auto'
+            });
+            
+            // 逐渐增加滚动速度（加速效果）
+            this.currentScrollSpeed = Math.min(
+                this.currentScrollSpeed * this.scrollAcceleration,
+                this.scrollSpeed * 3 // 最大速度限制
+            );
+            
+            // 继续动画
+            this.scrollAnimation = requestAnimationFrame(scroll);
+        };
+        
+        // 启动滚动循环
+        this.scrollAnimation = requestAnimationFrame(scroll);
+    }
+
+    stopContinuousScroll() {
+        if (this.scrollAnimation) {
+            cancelAnimationFrame(this.scrollAnimation);
+            this.scrollAnimation = null;
+            console.log('滚动动画已停止');
+        }
+        this.currentScrollSpeed = this.scrollSpeed;
+    }
+
+    // 修复1: 添加缺失的 handleKeyUp 方法
+    handleKeyUp(e) {
+        if (!this.isVisible || !this.keyboardNavigationEnabled) return;
+        
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        // 处理滚动按键的释放
+        if (this.fileScrollMode && this.isScrollKey(e.code)) {
+            e.preventDefault();
+            
+            if (this.keyStates[e.code]) {
+                this.keyStates[e.code] = false;
+                this.updateScrollDirection();
+                
+                console.log(`按键释放: ${e.code}, 当前方向: ${this.scrollDirection}`);
+                
+                // 如果没有按键按下，停止滚动
+                if (this.scrollDirection === 0) {
+                    this.stopContinuousScroll();
+                    console.log('所有滚动按键已释放，停止滚动');
+                }
+            }
+        }
     }
 }

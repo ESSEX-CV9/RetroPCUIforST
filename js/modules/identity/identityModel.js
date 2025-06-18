@@ -29,8 +29,251 @@ class IdentityModel {
         this.ORGANIZATIONS = {
             "美国": {
                 "情报人员": ["CIA", "NSA", "FBI"]
+            },
+            "苏联": {
+                "情报人员": ["KGB", "GRU"]
+            },
+            "英国": {
+                "情报人员": ["MI5", "MI6"]
             }
             // 其他国家默认单一机构，无需指定
+        };
+        
+        // 伪装能力词条定义
+        this.DISGUISE_ABILITIES = {
+            // 军事背景系列
+            "军人出身": {
+                name: "军人出身",
+                bonuses: {
+                    "军人": 0.05,
+                    "外交人员": { "武官": 0.025 }
+                }
+            },
+            "军人世家": {
+                name: "军人世家", 
+                bonuses: {
+                    "军人": 0.10,
+                    "外交人员": { "武官": 0.05 }
+                }
+            },
+            "军官经历": {
+                name: "军官经历",
+                bonuses: {
+                    "军人": { "军官": 0.08 },
+                    "政府雇员": 0.03
+                }
+            },
+            "宪兵经历": {
+                name: "宪兵经历",
+                bonuses: {
+                    "军人": { "宪兵": 0.08 },
+                    "警察": 0.03
+                }
+            },
+            "特种部队": {
+                name: "特种部队",
+                bonuses: {
+                    "军人": 0.12,
+                    "情报人员": { "外勤特工": 0.05 }
+                }
+            },
+            
+            // 执法背景系列
+            "警察出身": {
+                name: "警察出身",
+                bonuses: {
+                    "警察": 0.05,
+                    "非法者": { "走私者": 0.025, "黑帮成员": 0.025 }
+                }
+            },
+            "警察世家": {
+                name: "警察世家",
+                bonuses: {
+                    "警察": 0.10,
+                    "非法者": { "走私者": 0.025, "黑帮成员": 0.025 }
+                }
+            },
+            "联邦探员": {
+                name: "联邦探员",
+                bonuses: {
+                    "警察": { "联邦探员": 0.08 },
+                    "情报人员": 0.03
+                }
+            },
+            "刑侦经验": {
+                name: "刑侦经验",
+                bonuses: {
+                    "警察": { "警探": 0.08 },
+                    "平民": { "记者": 0.03 }
+                }
+            },
+            
+            // 情报背景系列
+            "情报世家": {
+                name: "情报世家",
+                bonuses: {
+                    "情报人员": 0.10,
+                    "外交人员": 0.05
+                }
+            },
+            "反情报训练": {
+                name: "反情报训练",
+                bonuses: {
+                    "情报人员": { "反情报官": 0.08 },
+                    "政府雇员": 0.03
+                }
+            },
+            "技术专长": {
+                name: "技术专长",
+                bonuses: {
+                    "情报人员": { "技术专家": 0.08 },
+                    "平民": { "科研人员": 0.04 }
+                }
+            },
+            "深度卧底": {
+                name: "深度卧底",
+                bonuses: {
+                    "情报人员": { "深眠特工": 0.12 },
+                    "*": 0.02 // 对所有身份的通用加成
+                }
+            },
+            
+            // 外交背景系列
+            "外交世家": {
+                name: "外交世家",
+                bonuses: {
+                    "外交人员": 0.10,
+                    "政府雇员": 0.05
+                }
+            },
+            "领事经验": {
+                name: "领事经验",
+                bonuses: {
+                    "外交人员": { "外交官": 0.08 },
+                    "政府雇员": { "高级文官": 0.04 }
+                }
+            },
+            "多语言天赋": {
+                name: "多语言天赋",
+                bonuses: {
+                    "foreign": 0.03 // 伪装外国身份时的加成
+                }
+            },
+            
+            // 平民专业系列
+            "新闻背景": {
+                name: "新闻背景",
+                bonuses: {
+                    "平民": { "记者": 0.08 },
+                    "*": 0.02
+                }
+            },
+            "学术背景": {
+                name: "学术背景",
+                bonuses: {
+                    "平民": { "科研人员": 0.08 },
+                    "情报人员": { "技术专家": 0.03 }
+                }
+            },
+            "商业世家": {
+                name: "商业世家",
+                bonuses: {
+                    "平民": { "商人": 0.08 },
+                    "非法者": { "情报掮客": 0.03 }
+                }
+            },
+            "政治世家": {
+                name: "政治世家",
+                bonuses: {
+                    "平民": { "政客": 0.08 },
+                    "政府雇员": 0.04
+                }
+            },
+            
+            // 非法背景系列
+            "黑帮关系": {
+                name: "黑帮关系",
+                bonuses: {
+                    "非法者": { "黑帮成员": 0.08 },
+                    "警察": 0.03
+                }
+            },
+            "走私网络": {
+                name: "走私网络",
+                bonuses: {
+                    "非法者": { "走私者": 0.08 },
+                    "平民": { "商人": 0.04 }
+                }
+            },
+            "技术犯罪": {
+                name: "技术犯罪",
+                bonuses: {
+                    "非法者": { "黑客": 0.08 },
+                    "平民": { "科研人员": 0.03 }
+                }
+            },
+            "文件伪造": {
+                name: "文件伪造",
+                bonuses: {
+                    "非法者": { "伪造专家": 0.08 },
+                    "*": 0.03
+                }
+            }
+        };
+        
+        // 机构训练加成
+        this.INSTITUTION_BONUSES = {
+            // 美国情报机构
+            "CIA": {
+                "外交人员": 0.08,
+                "平民": { "记者": 0.05, "商人": 0.05 },
+                "情报人员": 0.06
+            },
+            "NSA": {
+                "情报人员": { "技术专家": 0.10 },
+                "平民": { "科研人员": 0.06 },
+                "政府雇员": 0.04
+            },
+            "FBI": {
+                "警察": 0.08,
+                "政府雇员": 0.05,
+                "非法者": 0.04
+            },
+            
+            // 苏联情报机构
+            "KGB": {
+                "*": 0.05, // 对所有身份的通用加成
+                "情报人员": 0.08,
+                "政府雇员": 0.06
+            },
+            "GRU": {
+                "军人": 0.10,
+                "外交人员": { "武官": 0.08 },
+                "情报人员": 0.06
+            },
+            
+            // 英国情报机构
+            "MI5": {
+                "政府雇员": 0.08,
+                "警察": 0.06,
+                "平民": { "记者": 0.05 }
+            },
+            "MI6": {
+                "外交人员": 0.08,
+                "平民": { "商人": 0.06 },
+                "情报人员": 0.07
+            }
+        };
+        
+        // 身份类型伪装难度
+        this.IDENTITY_TYPE_DIFFICULTY = {
+            "平民": 0.10,
+            "政府雇员": 0.00,
+            "外交人员": 0.00,
+            "情报人员": -0.10,
+            "军人": -0.05,
+            "警察": -0.05,
+            "非法者": 0.05
         };
         
         // NPC身份列表
@@ -645,5 +888,268 @@ class IdentityModel {
         }
         
         return null;
+    }
+    
+    // 计算伪装可信度
+    async calculateCredibility(disguiseIdentity, userStats, disguiseAbilities) {
+        try {
+            if (!disguiseIdentity) return 0;
+            
+            const realIdentity = await this.getRealIdentity();
+            const coverIdentity = await this.getCoverIdentity();
+            
+            // 1. 基础可信度 = 100% * (伪装技巧/100)
+            const disguiseSkill = (userStats && userStats.伪装技巧) || 50; // 默认50
+            let credibility = disguiseSkill / 100;
+            
+            // 2. 国籍加成
+            const nationalityBonus = this._calculateNationalityBonus(disguiseIdentity, realIdentity, coverIdentity);
+            credibility += nationalityBonus;
+            
+            // 3. 身份类型难度加成
+            const typeBonus = this.IDENTITY_TYPE_DIFFICULTY[disguiseIdentity.type] || 0;
+            credibility += typeBonus;
+            
+            // 4. 机构训练加成
+            const institutionBonus = this._calculateInstitutionBonus(disguiseIdentity, realIdentity, coverIdentity);
+            credibility += institutionBonus;
+            
+            // 5. 伪装能力词条加成
+            const abilityBonus = this._calculateAbilityBonus(disguiseIdentity, disguiseAbilities);
+            credibility += abilityBonus;
+            
+            // 确保结果在0-1之间
+            credibility = Math.max(0, Math.min(1, credibility));
+            
+            return credibility;
+        } catch (error) {
+            console.error("计算伪装可信度失败:", error);
+            return 0.5; // 出错时返回中等可信度
+        }
+    }
+    
+    // 计算国籍加成
+    _calculateNationalityBonus(disguiseIdentity, realIdentity, coverIdentity) {
+        let bonus = 0;
+        
+        if (realIdentity && disguiseIdentity.nationality === realIdentity.nationality) {
+            bonus += 0.10; // 真实身份国籍加成10%
+        }
+        
+        if (coverIdentity && disguiseIdentity.nationality === coverIdentity.nationality) {
+            bonus += 0.05; // 表面身份国籍加成5%
+        }
+        
+        return bonus;
+    }
+    
+    // 计算机构训练加成
+    _calculateInstitutionBonus(disguiseIdentity, realIdentity, coverIdentity) {
+        let bonus = 0;
+        
+        // 真实身份机构加成
+        if (realIdentity && realIdentity.organization) {
+            bonus += this._getInstitutionBonus(realIdentity.organization, disguiseIdentity);
+        }
+        
+        // 表面身份机构加成
+        if (coverIdentity && coverIdentity.organization && 
+            coverIdentity.organization !== (realIdentity ? realIdentity.organization : null)) {
+            bonus += this._getInstitutionBonus(coverIdentity.organization, disguiseIdentity);
+        }
+        
+        return bonus;
+    }
+    
+    // 获取单个机构的加成
+    _getInstitutionBonus(organization, disguiseIdentity) {
+        const institutionConfig = this.INSTITUTION_BONUSES[organization];
+        if (!institutionConfig) return 0;
+        
+        // 检查通用加成
+        if (institutionConfig["*"]) {
+            return institutionConfig["*"];
+        }
+        
+        // 检查身份类型加成
+        const typeBonus = institutionConfig[disguiseIdentity.type];
+        if (typeof typeBonus === 'number') {
+            return typeBonus;
+        }
+        
+        // 检查具体职能加成
+        if (typeof typeBonus === 'object' && disguiseIdentity.function) {
+            return typeBonus[disguiseIdentity.function] || 0;
+        }
+        
+        return 0;
+    }
+    
+    // 计算伪装能力词条加成
+    _calculateAbilityBonus(disguiseIdentity, disguiseAbilities) {
+        if (!disguiseAbilities || disguiseAbilities.length === 0) return 0;
+        
+        let totalBonus = 0;
+        
+        for (const abilityId of disguiseAbilities) {
+            const ability = this.DISGUISE_ABILITIES[abilityId];
+            if (!ability) continue;
+            
+            const bonus = this._getAbilityBonus(ability, disguiseIdentity);
+            totalBonus += bonus;
+        }
+        
+        return totalBonus;
+    }
+    
+    // 获取单个能力词条的加成
+    _getAbilityBonus(ability, disguiseIdentity) {
+        const bonuses = ability.bonuses;
+        
+        // 检查通用加成
+        if (bonuses["*"]) {
+            return bonuses["*"];
+        }
+        
+        // 检查外国身份加成
+        if (bonuses["foreign"] && this._isForeignIdentity(disguiseIdentity)) {
+            return bonuses["foreign"];
+        }
+        
+        // 检查身份类型加成
+        const typeBonus = bonuses[disguiseIdentity.type];
+        if (typeof typeBonus === 'number') {
+            return typeBonus;
+        }
+        
+        // 检查具体职能加成
+        if (typeof typeBonus === 'object' && disguiseIdentity.function) {
+            return typeBonus[disguiseIdentity.function] || 0;
+        }
+        
+        return 0;
+    }
+    
+    // 判断是否为外国身份（相对于玩家的真实身份）
+    async _isForeignIdentity(disguiseIdentity) {
+        try {
+            const realIdentity = await this.getRealIdentity();
+            return realIdentity && disguiseIdentity.nationality !== realIdentity.nationality;
+        } catch (error) {
+            return false;
+        }
+    }
+    
+    // 根据可信度获取风险等级
+    getCredibilityRiskLevel(credibility) {
+        const percentage = credibility * 100;
+        
+        if (percentage < 30) return { level: "极高", color: "red" };
+        if (percentage < 50) return { level: "高等", color: "orange" };
+        if (percentage < 70) return { level: "中等", color: "yellow" };
+        if (percentage < 85) return { level: "低等", color: "lightgreen" };
+        return { level: "极低", color: "green" };
+    }
+    
+    // 扩展现有的setDisguiseIdentity方法以包含可信度计算
+    async setDisguiseIdentityWithCredibility(nationality, type, func, organization = null) {
+        // 先调用原有方法设置基础数据
+        const success = await this.setDisguiseIdentity(nationality, type, func, organization);
+        
+        if (success) {
+            try {
+                // 获取用户数据
+                const identityService = this.serviceLocator ? this.serviceLocator.get('identityService') : null;
+                const userStats = identityService ? await identityService.getUserStats() : null;
+                const userDisguiseAbilities = identityService ? await identityService.getDisguiseAbilities() : [];
+                
+                // 计算可信度
+                const disguiseIdentity = await this.getDisguiseIdentity();
+                const credibility = await this.calculateCredibility(disguiseIdentity, userStats, userDisguiseAbilities);
+                
+                // 保存可信度到扩展数据
+                await this._saveCredibilityToExtendedData(credibility);
+                
+                // 触发可信度更新事件
+                if (this.eventBus) {
+                    this.eventBus.emit('disguiseCredibilityUpdated', {
+                        credibility: credibility,
+                        riskLevel: this.getCredibilityRiskLevel(credibility)
+                    });
+                }
+                
+                console.log(`伪装可信度计算完成: ${(credibility * 100).toFixed(1)}%`);
+                
+            } catch (error) {
+                console.warn("计算或保存伪装可信度失败:", error);
+            }
+        }
+        
+        return success;
+    }
+    
+    // 保存可信度到扩展数据
+    async _saveCredibilityToExtendedData(credibility) {
+        try {
+            const controller = this._getLorebookController();
+            
+            if (controller && controller.updatePlayerIdentity) {
+                const suffix = controller.model 
+                    ? controller.model.PLAYER_IDENTITY_SUFFIX_DISGUISE 
+                    : 'disguise';
+                
+                // 获取现有的伪装数据
+                const existingData = await controller.getPlayerIdentity(suffix, null);
+                
+                if (existingData) {
+                    // 更新可信度数据
+                    existingData.credibility = credibility;
+                    existingData.credibilityCalculatedAt = new Date().toISOString();
+                    
+                    // 保存回世界书
+                    await controller.updatePlayerIdentity(suffix, existingData);
+                }
+            }
+        } catch (error) {
+            console.warn("保存可信度到世界书失败:", error);
+        }
+    }
+    
+    // 扩展checkDisguiseDetection方法以使用可信度
+    async checkDisguiseDetectionWithCredibility() {
+        const disguiseIdentity = await this.getDisguiseIdentity();
+        if (!disguiseIdentity) return false;
+        
+        try {
+            // 获取用户数据
+            const identityService = this.serviceLocator ? this.serviceLocator.get('identityService') : null;
+            const userStats = identityService ? await identityService.getUserStats() : null;
+            const userDisguiseAbilities = identityService ? await identityService.getDisguiseAbilities() : [];
+            
+            // 计算当前可信度
+            const credibility = await this.calculateCredibility(disguiseIdentity, userStats, userDisguiseAbilities);
+            
+            // 基于可信度计算识破概率
+            const detectionRate = this._calculateDetectionRate(credibility);
+            
+            return Math.random() < detectionRate;
+        } catch (error) {
+            console.error("基于可信度的识破检测失败:", error);
+            // 回退到原有逻辑
+            return Math.random() < 0.1; // 默认10%识破率
+        }
+    }
+    
+    // 根据可信度计算识破概率
+    _calculateDetectionRate(credibility) {
+        // 可信度越低，识破概率越高
+        // 使用反比例关系，并加入一些随机性
+        const baseDetectionRate = 1 - credibility;
+        
+        // 添加一些基础的识破概率（即使可信度很高也有小概率被识破）
+        const minDetectionRate = 0.01; // 最低1%
+        const maxDetectionRate = 0.8;  // 最高80%
+        
+        return Math.max(minDetectionRate, Math.min(maxDetectionRate, baseDetectionRate));
     }
 }

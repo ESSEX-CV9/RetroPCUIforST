@@ -1267,8 +1267,11 @@ class IdentityView {
         // 从扩展数据中提取信息，如果没有则使用默认值
         const extensions = extendedData ? extendedData.extensions : null;
         
+        console.log("调试：伪装身份数据", disguise);
+        console.log("调试：职能", disguise.function);
+        console.log("调试：机构", disguise.organization);
         // 第1类别：基本信息
-        const basicInfo = {
+        const basicInfo = {       
             headerTitle: '临时伪装档案',
             headerSubtitle: '使用中',
             stampText: '伪装身份',
@@ -1280,11 +1283,14 @@ class IdentityView {
         };
         
         if (disguise.function) {
+            console.log("调试：添加职能行", disguise.function);
             basicInfo.rows.push({ label: "职能", value: disguise.function });
         }
         if (disguise.organization) {
+            console.log("调试：添加机构行", disguise.organization);
             basicInfo.rows.push({ label: "隶属机构", value: disguise.organization });
         }
+        console.log("调试：基本信息rows", basicInfo.rows);
         
         categories.push(basicInfo);
 
@@ -1464,5 +1470,218 @@ class IdentityView {
         } else {
             this.domUtils.removeClass(indicator, 'active');
         }
+    }
+
+    // 新增：更新可信度显示
+    updateCredibilityDisplay(credibility, riskLevel) {
+        try {
+            // 查找或创建可信度显示区域
+            let credibilityElement = this.domUtils.get('#credibilityDisplay');
+            
+            if (!credibilityElement) {
+                // 在伪装信息显示区域创建可信度显示
+                const disguiseIdentityDisplay = this.domUtils.get('#currentDisguiseDisplay');
+                if (disguiseIdentityDisplay && disguiseIdentityDisplay.parentNode) {
+                    // 创建可信度显示容器
+                    const credibilityContainer = this.domUtils.create('div', {
+                        id: 'credibilityDisplay', 
+                        className: 'credibility-container',
+                        innerHTML: `
+                            <div class="credibility-header">
+                                <span class="credibility-title">身份可信度</span>
+                                <span class="credibility-status" id="credibilityStatus"></span>
+                            </div>
+                            <div class="credibility-bar">
+                                <div class="credibility-fill" id="credibilityFill"></div>
+                                <div class="credibility-text" id="credibilityText"></div>
+                            </div>
+                            <div class="risk-level" id="riskLevel"></div>
+                        `
+                    });
+                    
+                    // 插入到伪装显示区域之前
+                    disguiseIdentityDisplay.parentNode.insertBefore(credibilityContainer, disguiseIdentityDisplay);
+                    credibilityElement = credibilityContainer;
+                }
+            }
+            
+            if (credibilityElement) {
+                const percentage = Math.round(credibility * 100);
+                
+                // 更新可信度条
+                const fillElement = this.domUtils.get('#credibilityFill');
+                const textElement = this.domUtils.get('#credibilityText');
+                const statusElement = this.domUtils.get('#credibilityStatus');
+                const riskElement = this.domUtils.get('#riskLevel');
+                
+                if (fillElement) {
+                    fillElement.style.width = `${percentage}%`;
+                    fillElement.style.backgroundColor = riskLevel ? riskLevel.color : 'green';
+                }
+                
+                if (textElement) {
+                    textElement.textContent = `${percentage}%`;
+                }
+                
+                if (statusElement) {
+                    statusElement.textContent = riskLevel ? riskLevel.level : '未知';
+                    statusElement.style.color = riskLevel ? riskLevel.color : 'gray';
+                }
+                
+                if (riskElement) {
+                    riskElement.textContent = `识破风险: ${riskLevel ? riskLevel.level : '未知'}`;
+                    riskElement.style.color = riskLevel ? riskLevel.color : 'gray';
+                }
+                
+                // 显示可信度容器
+                credibilityElement.style.display = 'block';
+            }
+        } catch (error) {
+            console.error("更新可信度显示失败:", error);
+        }
+    }
+
+    // 新增：隐藏可信度显示
+    hideCredibilityDisplay() {
+        const credibilityElement = this.domUtils.get('#credibilityDisplay');
+        if (credibilityElement) {
+            credibilityElement.style.display = 'none';
+        }
+    }
+
+    // 新增：更新伪装能力词条显示
+    updateDisguiseAbilitiesDisplay(userAbilities, availableAbilities) {
+        try {
+            // 查找或创建伪装能力词条显示区域
+            let abilitiesElement = this.domUtils.get('#disguiseAbilitiesDisplay');
+            
+            if (!abilitiesElement) {
+                // 在玩家统计区域下方创建能力词条显示
+                const playerStats = this.domUtils.get('#playerStats');
+                if (playerStats && playerStats.parentNode) {
+                    abilitiesElement = this.domUtils.create('div', {
+                        id: 'disguiseAbilitiesDisplay',
+                        className: 'disguise-abilities-container',
+                        innerHTML: `
+                            <div class="abilities-header">
+                                <span class="abilities-title">伪装能力词条</span>
+                            </div>
+                            <div class="abilities-list" id="abilitiesList"></div>
+                        `
+                    });
+                    
+                    // 插入到统计数据之后
+                    playerStats.parentNode.insertBefore(abilitiesElement, playerStats.nextSibling);
+                }
+            }
+            
+            if (abilitiesElement) {
+                const abilitiesList = this.domUtils.get('#abilitiesList');
+                if (abilitiesList) {
+                    // 清空现有内容
+                    abilitiesList.innerHTML = '';
+                    
+                    // 如果没有能力词条，显示提示
+                    if (!userAbilities || userAbilities.length === 0) {
+                        abilitiesList.innerHTML = '<div class="no-abilities">暂无伪装能力词条</div>';
+                        return;
+                    }
+                    
+                    // 渲染用户拥有的能力词条
+                    userAbilities.forEach(abilityId => {
+                        const ability = availableAbilities[abilityId];
+                        if (ability) {
+                            const abilityElement = this.domUtils.create('div', {
+                                className: 'ability-item active',
+                                innerHTML: `
+                                    <div class="ability-name">${ability.name}</div>
+                                    <div class="ability-toggle" data-ability-id="${abilityId}">✓</div>
+                                `
+                            });
+                            
+                            // 添加点击事件
+                            const toggleButton = abilityElement.querySelector('.ability-toggle');
+                            if (toggleButton) {
+                                toggleButton.addEventListener('click', () => {
+                                    this.handleAbilityToggle(abilityId);
+                                });
+                            }
+                            
+                            abilitiesList.appendChild(abilityElement);
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("更新伪装能力词条显示失败:", error);
+        }
+    }
+
+    // 新增：处理能力词条切换
+    async handleAbilityToggle(abilityId) {
+        try {
+            // 通过事件总线通知控制器
+            if (this.eventBus) {
+                this.eventBus.emit('toggleDisguiseAbility', { abilityId });
+            }
+            
+            // 或者直接调用控制器方法（如果有全局引用）
+            if (window.identityController) {
+                await window.identityController.handleDisguiseAbilityToggle(abilityId);
+            }
+        } catch (error) {
+            console.error("处理能力词条切换失败:", error);
+        }
+    }
+
+    // 扩展现有的updateDisguiseIdentity方法以包含可信度信息
+    updateDisguiseIdentityEnhanced(identity, credibility = null, riskLevel = null) {
+        // 调用原有的更新方法
+        this.updateDisguiseIdentity(identity);
+        
+        // 更新可信度显示
+        if (identity && credibility !== null && riskLevel) {
+            this.updateCredibilityDisplay(credibility, riskLevel);
+        } else if (!identity) {
+            this.hideCredibilityDisplay();
+        }
+    }
+
+    // 修改generateDisguiseCategoriesData方法以包含可信度信息
+    generateDisguiseCategoriesDataEnhanced(disguise, extendedData = null, credibility = null, riskLevel = null) {
+        const categories = this.generateDisguiseCategoriesData(disguise, extendedData);
+        
+        // 如果有可信度信息，修改第2类别（伪装信息）
+        if (credibility !== null && riskLevel && categories.length >= 2) {
+            const statusCategory = categories[1];
+            
+            // 更新可信度相关信息
+            const credibilityPercentage = Math.round(credibility * 100);
+            
+            // 替换或添加可信度相关行
+            statusCategory.rows = statusCategory.rows.map(row => {
+                if (row.label === "身份可信度" || row.label === "风险等级") {
+                    if (row.label === "身份可信度") {
+                        return { label: "身份可信度", value: `${credibilityPercentage}%` };
+                    } else {
+                        return { label: "风险等级", value: riskLevel.level };
+                    }
+                }
+                return row;
+            });
+            
+            // 如果没有找到相关行，添加它们
+            const hasCredibility = statusCategory.rows.some(row => row.label === "身份可信度");
+            const hasRisk = statusCategory.rows.some(row => row.label === "风险等级");
+            
+            if (!hasCredibility) {
+                statusCategory.rows.splice(2, 0, { label: "身份可信度", value: `${credibilityPercentage}%` });
+            }
+            if (!hasRisk) {
+                statusCategory.rows.splice(3, 0, { label: "风险等级", value: riskLevel.level });
+            }
+        }
+        
+        return categories;
     }
 }

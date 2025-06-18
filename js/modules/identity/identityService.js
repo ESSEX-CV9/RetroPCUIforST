@@ -516,4 +516,249 @@ class IdentityService {
         this.cache.userSkills = userData ? userData.skills : null;
         this.cache.cacheTime = Date.now();
     }
+
+    // 新增：伪装能力词条管理
+
+    /**
+     * 获取用户的伪装能力词条
+     * @returns {Promise<Array>} 伪装能力词条数组
+     */
+    async getDisguiseAbilities() {
+        if (!this.initialized) {
+            console.warn("身份服务尚未初始化，无法获取伪装能力词条");
+            return [];
+        }
+        
+        try {
+            const userData = await this.getUserData();
+            if (userData && userData.disguiseAbilities) {
+                return userData.disguiseAbilities;
+            }
+            
+            // 如果没有伪装能力词条，返回默认空数组
+            return [];
+        } catch (error) {
+            console.error("获取伪装能力词条失败:", error);
+            return [];
+        }
+    }
+
+    /**
+     * 更新用户的伪装能力词条
+     * @param {Array} abilities 伪装能力词条数组
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async updateDisguiseAbilities(abilities) {
+        if (!this.initialized) {
+            console.warn("身份服务尚未初始化，无法更新伪装能力词条");
+            return false;
+        }
+        
+        try {
+            const controller = this._getLorebookController();
+            if (controller && controller.updateUserData) {
+                // 获取现有用户数据
+                const userData = await this.getUserData() || {};
+                
+                // 更新伪装能力词条
+                userData.disguiseAbilities = abilities;
+                
+                // 保存回世界书
+                const success = await controller.updateUserData(userData);
+                
+                if (success) {
+                    // 清除缓存以确保下次获取最新数据
+                    this._clearCache();
+                    
+                    // 触发伪装能力更新事件
+                    if (this.eventBus) {
+                        this.eventBus.emit('disguiseAbilitiesUpdated', {
+                            abilities: abilities
+                        });
+                    }
+                    
+                    // 如果当前有伪装身份，重新计算可信度
+                    await this._recalculateDisguiseCredibility();
+                }
+                
+                return success;
+            }
+            return false;
+        } catch (error) {
+            console.error("更新伪装能力词条失败:", error);
+            return false;
+        }
+    }
+
+    /**
+     * 添加伪装能力词条
+     * @param {string} abilityId 能力词条ID
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async addDisguiseAbility(abilityId) {
+        if (!this.initialized) {
+            console.warn("身份服务尚未初始化，无法添加伪装能力词条");
+            return false;
+        }
+        
+        try {
+            const currentAbilities = await this.getDisguiseAbilities();
+            
+            // 检查是否已经存在
+            if (currentAbilities.includes(abilityId)) {
+                console.warn(`伪装能力词条 ${abilityId} 已存在`);
+                return false;
+            }
+            
+            // 添加新能力词条
+            const newAbilities = [...currentAbilities, abilityId];
+            return await this.updateDisguiseAbilities(newAbilities);
+        } catch (error) {
+            console.error("添加伪装能力词条失败:", error);
+            return false;
+        }
+    }
+
+    /**
+     * 移除伪装能力词条
+     * @param {string} abilityId 能力词条ID
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async removeDisguiseAbility(abilityId) {
+        if (!this.initialized) {
+            console.warn("身份服务尚未初始化，无法移除伪装能力词条");
+            return false;
+        }
+        
+        try {
+            const currentAbilities = await this.getDisguiseAbilities();
+            
+            // 过滤掉要移除的能力词条
+            const newAbilities = currentAbilities.filter(id => id !== abilityId);
+            
+            // 检查是否有变化
+            if (newAbilities.length === currentAbilities.length) {
+                console.warn(`伪装能力词条 ${abilityId} 不存在`);
+                return false;
+            }
+            
+            return await this.updateDisguiseAbilities(newAbilities);
+        } catch (error) {
+            console.error("移除伪装能力词条失败:", error);
+            return false;
+        }
+    }
+
+    /**
+     * 切换伪装能力词条（存在则移除，不存在则添加）
+     * @param {string} abilityId 能力词条ID
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async toggleDisguiseAbility(abilityId) {
+        if (!this.initialized) {
+            console.warn("身份服务尚未初始化，无法切换伪装能力词条");
+            return false;
+        }
+        
+        try {
+            const currentAbilities = await this.getDisguiseAbilities();
+            
+            if (currentAbilities.includes(abilityId)) {
+                return await this.removeDisguiseAbility(abilityId);
+            } else {
+                return await this.addDisguiseAbility(abilityId);
+            }
+        } catch (error) {
+            console.error("切换伪装能力词条失败:", error);
+            return false;
+        }
+    }
+
+    /**
+     * 获取可用的伪装能力词条列表
+     * @returns {Object} 伪装能力词条定义
+     */
+    getAvailableDisguiseAbilities() {
+        if (this.model) {
+            return this.model.DISGUISE_ABILITIES || {};
+        }
+        return {};
+    }
+
+    /**
+     * 计算当前伪装的可信度
+     * @returns {Promise<number>} 可信度值 (0-1)
+     */
+    async calculateCurrentDisguiseCredibility() {
+        if (!this.initialized) {
+            console.warn("身份服务尚未初始化，无法计算伪装可信度");
+            return 0;
+        }
+        
+        try {
+            const disguiseIdentity = await this.getDisguiseIdentity();
+            if (!disguiseIdentity) return 0;
+            
+            const userStats = await this.getUserStats();
+            const disguiseAbilities = await this.getDisguiseAbilities();
+            
+            if (this.model && this.model.calculateCredibility) {
+                return await this.model.calculateCredibility(disguiseIdentity, userStats, disguiseAbilities);
+            }
+            
+            return 0;
+        } catch (error) {
+            console.error("计算伪装可信度失败:", error);
+            return 0;
+        }
+    }
+
+    /**
+     * 获取当前伪装的风险等级
+     * @returns {Promise<Object>} 风险等级信息
+     */
+    async getCurrentDisguiseRiskLevel() {
+        try {
+            const credibility = await this.calculateCurrentDisguiseCredibility();
+            
+            if (this.model && this.model.getCredibilityRiskLevel) {
+                return this.model.getCredibilityRiskLevel(credibility);
+            }
+            
+            return { level: "未知", color: "gray" };
+        } catch (error) {
+            console.error("获取伪装风险等级失败:", error);
+            return { level: "未知", color: "gray" };
+        }
+    }
+
+    /**
+     * 私有方法：重新计算伪装可信度
+     */
+    async _recalculateDisguiseCredibility() {
+        try {
+            const disguiseIdentity = await this.getDisguiseIdentity();
+            if (!disguiseIdentity) return;
+            
+            // 计算新的可信度
+            const credibility = await this.calculateCurrentDisguiseCredibility();
+            
+            // 保存到扩展数据
+            if (this.model && this.model._saveCredibilityToExtendedData) {
+                await this.model._saveCredibilityToExtendedData(credibility);
+            }
+            
+            // 触发可信度更新事件
+            if (this.eventBus) {
+                this.eventBus.emit('disguiseCredibilityUpdated', {
+                    credibility: credibility,
+                    riskLevel: this.model ? this.model.getCredibilityRiskLevel(credibility) : null
+                });
+            }
+            
+            console.log(`伪装可信度重新计算完成: ${(credibility * 100).toFixed(1)}%`);
+        } catch (error) {
+            console.warn("重新计算伪装可信度失败:", error);
+        }
+    }
 }

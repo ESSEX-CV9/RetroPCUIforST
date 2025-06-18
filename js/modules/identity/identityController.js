@@ -110,6 +110,9 @@ class IdentityController {
             // 更新档案显示
             await this.switchIdentityView('cover');
             
+            // 初始化增强功能
+            await this.initializeEnhancedFeatures();
+            
             this.initialized = true;
             
             // 设置全局引用以供TUI使用
@@ -469,9 +472,16 @@ class IdentityController {
                 return;
             }
             
-            // 同步到传统表单
+            // 同步到传统表单 - 修复联动问题
+            // 1) 先设置国籍和类型
             if (this.view.nationalitySelect) this.view.nationalitySelect.value = selections.nationality || '';
             if (this.view.typeSelect) this.view.typeSelect.value = selections.type || '';
+            
+            // 2) 触发联动，刷新职能和机构下拉框
+            this.handleTypeChange();       // 根据新类型刷新职能 + 机构
+            this.handleNationalityChange(); // 根据新国籍刷新机构
+            
+            // 3) 再设置职能和机构（此时两张列表已包含正确选项）
             if (this.view.functionSelect) this.view.functionSelect.value = selections.function || '';
             if (this.view.organizationSelect) this.view.organizationSelect.value = selections.organization || '';
             
@@ -535,9 +545,16 @@ class IdentityController {
                     organization: disguise.organization
                 });
                 
-                // 同时更新隐藏表单元素
+                // 同时更新隐藏表单元素 - 修复联动问题
+                // 1) 先设置国籍和类型
                 if (this.view.nationalitySelect) this.view.nationalitySelect.value = disguise.nationality || '';
                 if (this.view.typeSelect) this.view.typeSelect.value = disguise.type || '';
+                
+                // 2) 触发联动，刷新职能和机构下拉框
+                this.handleTypeChange();       // 根据新类型刷新职能 + 机构
+                this.handleNationalityChange(); // 根据新国籍刷新机构
+                
+                // 3) 再设置职能和机构（此时两张列表已包含正确选项）
                 if (this.view.functionSelect) this.view.functionSelect.value = disguise.function || '';
                 if (this.view.organizationSelect) this.view.organizationSelect.value = disguise.organization || '';
             } else {
@@ -605,13 +622,16 @@ class IdentityController {
             const func = this.view.functionSelect.value || null;
             const organization = this.view.organizationSelect.value || null;
             
-            // 设置伪装身份
-            const result = await this.model.setDisguiseIdentity(nationality, type, func, organization);
+            // 使用新的带可信度计算的方法
+            const result = await this.model.setDisguiseIdentityWithCredibility(nationality, type, func, organization);
             
             if (result) {
                 // 更新伪装显示
                 const newDisguise = await this.model.getDisguiseIdentity();
                 this.view.updateDisguiseIdentity(newDisguise);
+                
+                // 更新可信度显示
+                await this.updateCredibilityDisplay();
                 
                 // 播放音效
                 if (this.audio) this.audio.play('systemBeep');
@@ -2041,5 +2061,152 @@ class IdentityController {
                 }
             }
         }
+    }
+
+    // 新增：伪装能力词条相关方法
+
+    /**
+     * 处理伪装能力词条的切换
+     * @param {string} abilityId 能力词条ID
+     */
+    async handleDisguiseAbilityToggle(abilityId) {
+        try {
+            const identityService = this.serviceLocator.get('identityService');
+            if (!identityService) {
+                console.error("无法获取身份服务");
+                return false;
+            }
+
+            const success = await identityService.toggleDisguiseAbility(abilityId);
+            
+            if (success) {
+                // 更新UI显示
+                await this.updateDisguiseAbilitiesDisplay();
+                
+                // 如果当前有伪装身份，更新可信度显示
+                const disguiseIdentity = await this.model.getDisguiseIdentity();
+                if (disguiseIdentity) {
+                    await this.updateCredibilityDisplay();
+                }
+                
+                // 播放音效
+                if (this.audio) this.audio.play('functionButton');
+                
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error("切换伪装能力词条失败:", error);
+            return false;
+        }
+    }
+
+    /**
+     * 更新伪装能力词条显示
+     */
+    async updateDisguiseAbilitiesDisplay() {
+        try {
+            const identityService = this.serviceLocator.get('identityService');
+            if (!identityService) return;
+
+            const userAbilities = await identityService.getDisguiseAbilities();
+            const availableAbilities = identityService.getAvailableDisguiseAbilities();
+            
+            // 通知视图更新显示
+            if (this.view.updateDisguiseAbilitiesDisplay) {
+                this.view.updateDisguiseAbilitiesDisplay(userAbilities, availableAbilities);
+            }
+        } catch (error) {
+            console.error("更新伪装能力词条显示失败:", error);
+        }
+    }
+
+    /**
+     * 更新可信度显示
+     */
+    async updateCredibilityDisplay() {
+        try {
+            const identityService = this.serviceLocator.get('identityService');
+            if (!identityService) return;
+
+            const credibility = await identityService.calculateCurrentDisguiseCredibility();
+            const riskLevel = await identityService.getCurrentDisguiseRiskLevel();
+            
+            // 通知视图更新可信度显示
+            if (this.view.updateCredibilityDisplay) {
+                this.view.updateCredibilityDisplay(credibility, riskLevel);
+            }
+        } catch (error) {
+            console.error("更新可信度显示失败:", error);
+        }
+    }
+
+    /**
+     * 初始化伪装能力词条事件监听器
+     */
+    setupDisguiseAbilityEventListeners() {
+        // 监听伪装能力更新事件
+        if (this.eventBus) {
+            this.eventBus.on('disguiseAbilitiesUpdated', async (eventData) => {
+                console.log("检测到伪装能力词条更新:", eventData.abilities);
+                await this.updateDisguiseAbilitiesDisplay();
+            });
+
+            this.eventBus.on('disguiseCredibilityUpdated', async (eventData) => {
+                console.log("检测到伪装可信度更新:", eventData.credibility);
+                if (this.view.updateCredibilityDisplay) {
+                    this.view.updateCredibilityDisplay(eventData.credibility, eventData.riskLevel);
+                }
+            });
+        }
+    }
+
+    /**
+     * 扩展现有的初始化方法以包含新功能
+     */
+    async initializeEnhancedFeatures() {
+        try {
+            // 设置伪装能力词条事件监听器
+            this.setupDisguiseAbilityEventListeners();
+            
+            // 初始化伪装能力词条显示
+            await this.updateDisguiseAbilitiesDisplay();
+            
+            // 如果当前有伪装身份，初始化可信度显示
+            const disguiseIdentity = await this.model.getDisguiseIdentity();
+            if (disguiseIdentity) {
+                await this.updateCredibilityDisplay();
+            }
+            
+            console.log("增强功能初始化完成");
+        } catch (error) {
+            console.error("增强功能初始化失败:", error);
+        }
+    }
+
+    /**
+     * 扩展现有的updateIdentityDisplays方法
+     */
+    async updateIdentityDisplaysEnhanced() {
+        // 调用原有的更新方法
+        const result = await this.updateIdentityDisplays();
+        
+        if (result) {
+            try {
+                // 更新伪装能力词条显示
+                await this.updateDisguiseAbilitiesDisplay();
+                
+                // 更新可信度显示
+                const disguiseIdentity = await this.model.getDisguiseIdentity();
+                if (disguiseIdentity) {
+                    await this.updateCredibilityDisplay();
+                }
+            } catch (error) {
+                console.warn("更新增强显示功能失败:", error);
+            }
+        }
+        
+        return result;
     }
 }

@@ -69,6 +69,9 @@ class IdentityController {
             // 初始化视图
             this.view.initialize();
             
+            // 设置model引用
+            this.view.setModel(this.model);
+            
             // 主动获取当前颜色模式并应用
             this.applyCurrentColorMode();
             
@@ -80,6 +83,9 @@ class IdentityController {
             
             // 填充表单选择框
             this.populateFormSelects();
+            
+            // 初始化TUI系统
+            this.initializeTUISystem();
             
             // 检查lorebook是否准备好 
             const lorebookController = window.lorebookController;
@@ -105,6 +111,10 @@ class IdentityController {
             await this.switchIdentityView('cover');
             
             this.initialized = true;
+            
+            // 设置全局引用以供TUI使用
+            window.identityController = this;
+            
             console.log("身份控制器初始化完成");
             return true;
         } catch (error) {
@@ -228,6 +238,8 @@ class IdentityController {
             this.domUtils.on(editDisguiseButton, 'click', () => {
                 if (this.audio) this.audio.play('functionButton');
                 this.view.showEditDisguiseView();
+                // 确保全局引用可用
+                window.identityController = this;
             });
         }
 
@@ -300,6 +312,246 @@ class IdentityController {
 
         // 设置键盘导航
         this.setupKeyboardNavigation();
+    }
+
+    // 初始化TUI系统
+    initializeTUISystem() {
+        // TUI状态管理
+        this.tuiActive = false;
+        this.tuiMode = 'main'; // 'main', 'sub', 'confirm'
+        this.tuiCategory = null;
+        this.tuiIndex = 0;
+        
+        // 设置TUI事件监听
+        this.setupTUIEventListeners();
+    }
+
+    // 设置TUI事件监听
+    setupTUIEventListeners() {
+        // TUI菜单项点击事件
+        document.addEventListener('click', (e) => {
+            if (!this.tuiActive) return;
+            
+            const menuItem = e.target.closest('.tui-menu-item');
+            if (!menuItem) return;
+            
+            this.handleTUIItemClick(menuItem);
+        });
+
+        // TUI滚轮事件监听
+        document.addEventListener('wheel', (e) => {
+            if (!this.tuiActive) return;
+            
+            const tuiEditor = e.target.closest('.tui-disguise-editor');
+            if (!tuiEditor) return;
+            
+            e.preventDefault();
+            
+            // 根据滚轮方向导航
+            const direction = e.deltaY > 0 ? 1 : -1;
+            this.navigateTUI(direction);
+        }, { passive: false });
+    }
+
+    // 处理TUI菜单项点击
+    handleTUIItemClick(menuItem) {
+        if (menuItem.classList.contains('tui-disabled')) return;
+        
+        if (this.tuiMode === 'main') {
+            const category = menuItem.dataset.category;
+            const action = menuItem.dataset.action;
+            
+            if (category) {
+                this.enterTUISubMenu(category);
+            } else if (action === 'apply') {
+                this.showTUIConfirmPanel();
+            } else if (action === 'clear') {
+                this.clearTUIDisguise();
+            }
+        } else if (this.tuiMode === 'sub') {
+            const value = menuItem.dataset.value;
+            if (value) {
+                this.selectTUIValue(value);
+            }
+        } else if (this.tuiMode === 'confirm') {
+            const action = menuItem.dataset.action;
+            if (action === 'confirm') {
+                this.applyTUIDisguise();
+            } else if (action === 'cancel') {
+                this.exitTUIConfirm();
+            }
+        }
+    }
+
+    // 进入TUI子菜单
+    enterTUISubMenu(category) {
+        this.tuiMode = 'sub';
+        this.tuiCategory = category;
+        this.tuiIndex = 0;
+        this.view.renderTUISubMenu(category);
+        this.view.showTUIPanel('tuiSubPanel');
+        
+        // 设置初始焦点
+        setTimeout(() => {
+            this.setTUIInitialFocus();
+        }, 50);
+    }
+
+    // 选择TUI值
+    selectTUIValue(value) {
+        if (!this.tuiCategory) return;
+        
+        // 更新选择
+        this.view.tuiState.selections[this.tuiCategory] = value;
+        
+        // 如果选择了身份类型，需要更新职能和机构选项
+        if (this.tuiCategory === 'type') {
+            this.view.tuiState.selections.function = null;
+            this.view.tuiState.selections.organization = null;
+        } else if (this.tuiCategory === 'nationality') {
+            this.view.tuiState.selections.organization = null;
+        }
+        
+        // 返回主菜单
+        this.exitTUISubMenu();
+    }
+
+    // 退出TUI子菜单
+    exitTUISubMenu() {
+        this.tuiMode = 'main';
+        this.tuiCategory = null;
+        this.tuiIndex = 0;
+        this.view.renderTUIMainMenu();
+        this.view.showTUIPanel('tuiMainPanel');
+        
+        // 恢复主菜单焦点
+        setTimeout(() => {
+            this.setTUIInitialFocus();
+        }, 50);
+    }
+
+    // 显示TUI确认面板
+    showTUIConfirmPanel() {
+        this.tuiMode = 'confirm';
+        this.tuiIndex = 0;
+        this.view.renderTUIConfirmPanel();
+        this.view.showTUIPanel('tuiConfirmPanel');
+        
+        // 设置初始焦点
+        setTimeout(() => {
+            this.setTUIInitialFocus();
+        }, 50);
+    }
+
+    // 退出TUI确认面板
+    exitTUIConfirm() {
+        this.tuiMode = 'main';
+        this.tuiIndex = 0;
+        this.view.renderTUIMainMenu();
+        this.view.showTUIPanel('tuiMainPanel');
+        
+        // 恢复主菜单焦点
+        setTimeout(() => {
+            this.setTUIInitialFocus();
+        }, 50);
+    }
+
+    // 应用TUI伪装
+    async applyTUIDisguise() {
+        try {
+            const selections = this.view.getTUISelections();
+            console.log('TUI伪装选择:', selections);
+            
+            // 验证必要的选择
+            if (!selections.nationality || !selections.type) {
+                console.warn('缺少必要的伪装参数');
+                this.view.updateTUIStatus('请设置国籍和身份类型');
+                return;
+            }
+            
+            // 同步到传统表单
+            if (this.view.nationalitySelect) this.view.nationalitySelect.value = selections.nationality || '';
+            if (this.view.typeSelect) this.view.typeSelect.value = selections.type || '';
+            if (this.view.functionSelect) this.view.functionSelect.value = selections.function || '';
+            if (this.view.organizationSelect) this.view.organizationSelect.value = selections.organization || '';
+            
+            // 使用现有的应用伪装方法
+            const result = await this.applyDisguise();
+            
+            if (result) {
+                console.log('TUI伪装应用成功');
+                // 退出TUI
+                this.exitTUIMode();
+            } else {
+                console.error('TUI伪装应用失败');
+                this.view.updateTUIStatus('应用失败，请重试');
+            }
+        } catch (error) {
+            console.error('TUI伪装应用出错:', error);
+            this.view.updateTUIStatus('应用出错，请重试');
+        }
+    }
+
+    // 清除TUI伪装
+    async clearTUIDisguise() {
+        await this.clearDisguise();
+        this.view.resetTUIState();
+        this.exitTUIMode();
+    }
+
+    // 进入TUI模式
+    enterTUIMode() {
+        this.tuiActive = true;
+        this.tuiMode = 'main';
+        this.tuiIndex = 0;
+        
+        // 从当前伪装加载数据
+        this.loadCurrentDisguiseToTUI();
+        
+        this.view.renderTUIMainMenu();
+        this.view.showTUIPanel('tuiMainPanel');
+        
+        // 设置初始焦点
+        setTimeout(() => {
+            this.setTUIInitialFocus();
+        }, 50);
+    }
+
+    // 退出TUI模式
+    exitTUIMode() {
+        this.tuiActive = false;
+        this.view.showCurrentDisguiseView();
+    }
+
+    // 加载当前伪装到TUI
+    async loadCurrentDisguiseToTUI() {
+        try {
+            const disguise = await this.model.getDisguiseIdentity();
+            if (disguise) {
+                this.view.setTUISelections({
+                    nationality: disguise.nationality,
+                    type: disguise.type,
+                    function: disguise.function,
+                    organization: disguise.organization
+                });
+                
+                // 同时更新隐藏表单元素
+                if (this.view.nationalitySelect) this.view.nationalitySelect.value = disguise.nationality || '';
+                if (this.view.typeSelect) this.view.typeSelect.value = disguise.type || '';
+                if (this.view.functionSelect) this.view.functionSelect.value = disguise.function || '';
+                if (this.view.organizationSelect) this.view.organizationSelect.value = disguise.organization || '';
+            } else {
+                // 没有伪装时清空选择
+                this.view.setTUISelections({
+                    nationality: null,
+                    type: null,
+                    function: null,
+                    organization: null
+                });
+            }
+        } catch (error) {
+            console.error("加载当前伪装到TUI失败:", error);
+        }
     }
     
     // 填充表单选择框
@@ -602,6 +854,12 @@ class IdentityController {
         e.stopPropagation();
         e.stopImmediatePropagation();
         
+        // 如果当前处于TUI模式，优先处理TUI键盘事件
+        if (this.tuiActive) {
+            this.handleTUIKeyDown(e);
+            return;
+        }
+        
         // 处理持续滚动的按键
         if (this.fileScrollMode && this.isScrollKey(e.code)) {
             e.preventDefault();
@@ -711,6 +969,196 @@ class IdentityController {
             
             default:
                 return;
+        }
+    }
+
+    // 处理TUI模式的键盘事件
+    handleTUIKeyDown(e) {
+        e.preventDefault();
+        
+        switch (e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                this.navigateTUI(-1);
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                this.navigateTUI(1);
+                break;
+            case 'ArrowRight':
+            case 'd':
+            case 'D':
+            case 'Enter':
+                this.activateTUIItem();
+                break;
+            case 'ArrowLeft':
+            case 'a':
+            case 'A':
+            case 'Escape':
+                this.backTUI();
+                break;
+            case 'Tab':
+                this.fastSwitchTUICategory();
+                break;
+            case 'A':
+            case 'a':
+                if (this.tuiMode === 'main') {
+                    this.showTUIConfirmPanel();
+                }
+                break;
+            case 'C':
+            case 'c':
+                if (this.tuiMode === 'main') {
+                    this.clearTUIDisguise();
+                }
+                break;
+            default:
+                return;
+        }
+        
+        if (this.audio) this.audio.play('functionButton');
+    }
+
+    // TUI导航
+    navigateTUI(direction) {
+        const panel = this.getCurrentTUIPanel();
+        if (!panel) return;
+        
+        const items = panel.querySelectorAll('.tui-menu-item:not(.tui-disabled)');
+        if (items.length === 0) return;
+        
+        // 移除当前选择
+        items.forEach(item => item.classList.remove('tui-selected'));
+        
+        // 计算新索引
+        this.tuiIndex += direction;
+        if (this.tuiIndex < 0) this.tuiIndex = items.length - 1;
+        if (this.tuiIndex >= items.length) this.tuiIndex = 0;
+        
+        // 设置新选择
+        items[this.tuiIndex].classList.add('tui-selected');
+        
+        // 滚动到焦点项
+        this.scrollTUIToFocus(items[this.tuiIndex], panel);
+    }
+
+    // 激活TUI项目
+    activateTUIItem() {
+        const panel = this.getCurrentTUIPanel();
+        if (!panel) return;
+        
+        const items = panel.querySelectorAll('.tui-menu-item:not(.tui-disabled)');
+        if (this.tuiIndex >= 0 && this.tuiIndex < items.length) {
+            this.handleTUIItemClick(items[this.tuiIndex]);
+        }
+    }
+
+    // TUI返回操作
+    backTUI() {
+        if (this.tuiMode === 'sub') {
+            this.exitTUISubMenu();
+        } else if (this.tuiMode === 'confirm') {
+            this.exitTUIConfirm();
+        } else {
+            this.exitTUIMode();
+        }
+    }
+
+    // 快速切换TUI分类
+    fastSwitchTUICategory() {
+        if (this.tuiMode !== 'main') return;
+        
+        const categories = ['nationality', 'type', 'function', 'organization'];
+        let nextCategory = null;
+        
+        // 找到当前选择的分类的下一个
+        const panel = this.getCurrentTUIPanel();
+        const items = panel.querySelectorAll('.tui-menu-item[data-category]');
+        
+        for (let i = 0; i < items.length; i++) {
+            if (i === this.tuiIndex) {
+                const currentCategory = items[i].dataset.category;
+                const currentIndex = categories.indexOf(currentCategory);
+                const nextIndex = (currentIndex + 1) % categories.length;
+                nextCategory = categories[nextIndex];
+                break;
+            }
+        }
+        
+        if (nextCategory) {
+            this.enterTUISubMenu(nextCategory);
+        }
+    }
+
+    // 获取当前TUI面板
+    getCurrentTUIPanel() {
+        if (this.tuiMode === 'main') {
+            return this.view.domUtils.get('#tuiMainPanel');
+        } else if (this.tuiMode === 'sub') {
+            return this.view.domUtils.get('#tuiSubPanel');
+        } else if (this.tuiMode === 'confirm') {
+            return this.view.domUtils.get('#tuiConfirmPanel');
+        }
+        return null;
+    }
+
+    // 滚动TUI面板使焦点项可见
+    scrollTUIToFocus(focusItem, panel) {
+        if (!focusItem || !panel) return;
+        
+        const panelRect = panel.getBoundingClientRect();
+        const itemRect = focusItem.getBoundingClientRect();
+        
+        // 检查项目是否在可视区域内
+        const isVisible = itemRect.top >= panelRect.top && itemRect.bottom <= panelRect.bottom;
+        
+        if (!isVisible) {
+            // 计算需要滚动的距离
+            const panelScrollTop = panel.scrollTop;
+            const itemOffsetTop = focusItem.offsetTop;
+            const panelHeight = panel.clientHeight;
+            const itemHeight = focusItem.offsetHeight;
+            
+            let newScrollTop;
+            
+            if (itemRect.top < panelRect.top) {
+                // 项目在可视区域上方，滚动到顶部
+                newScrollTop = itemOffsetTop - 10; // 留10px边距
+            } else {
+                // 项目在可视区域下方，滚动到底部
+                newScrollTop = itemOffsetTop - panelHeight + itemHeight + 10; // 留10px边距
+            }
+            
+            // 平滑滚动
+            panel.scrollTo({
+                top: Math.max(0, newScrollTop),
+                behavior: 'smooth'
+            });
+                 }
+     }
+
+    // 设置TUI初始焦点
+    setTUIInitialFocus() {
+        const panel = this.getCurrentTUIPanel();
+        if (!panel) return;
+        
+        const items = panel.querySelectorAll('.tui-menu-item:not(.tui-disabled)');
+        if (items.length === 0) return;
+        
+        // 移除所有选择状态
+        items.forEach(item => item.classList.remove('tui-selected'));
+        
+        // 确保索引在有效范围内
+        if (this.tuiIndex >= items.length) {
+            this.tuiIndex = 0;
+        }
+        
+        // 设置当前项为选中状态
+        if (items[this.tuiIndex]) {
+            items[this.tuiIndex].classList.add('tui-selected');
+            this.scrollTUIToFocus(items[this.tuiIndex], panel);
         }
     }
 

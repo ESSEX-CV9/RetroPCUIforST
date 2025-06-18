@@ -6,6 +6,7 @@ class IdentityView {
         this.domUtils = serviceLocator.get('domUtils');
         this.eventBus = serviceLocator.get('eventBus');
         this.audio = serviceLocator.get('audio');
+        this.model = null; // 将在controller中设置
         
         // DOM元素引用 - 主容器现在从HTML静态获取
         this.statusInterface = this.domUtils.get('#statusInterface'); 
@@ -35,6 +36,15 @@ class IdentityView {
         this.applyDisguiseButton = null;
         this.clearDisguiseButton = null;
     }
+
+    // 设置 Model 引用
+    setModel(model) {
+        this.model = model;
+        // 如果TUI已经初始化，重新渲染主菜单以更新数据
+        if (this.tuiState) {
+            this.renderTUIMainMenu();
+        }
+    }
     
     // 初始化视图
     async initialize() {
@@ -62,6 +72,9 @@ class IdentityView {
         this.applyDisguiseButton = this.domUtils.get('#statusInterface #applyDisguiseButton');
         this.clearDisguiseButton = this.domUtils.get('#statusInterface #clearDisguiseButton');
         this.disguiseIdentityDisplay = this.domUtils.get('#statusInterface #currentDisguiseDisplay');
+        
+        // 获取TUI元素引用
+        this.tuiEditor = this.domUtils.get('#statusInterface #tuiDisguiseEditor');
 
 
         // 初始显示基础信息页 (如果元素都已正确获取)
@@ -189,31 +202,8 @@ class IdentityView {
             style: { display: 'none' }
         });
 
-        const formContainer = this.domUtils.create('div', {
-            className: 'disguise-form-container',
-            innerHTML: `
-                <div class="form-group">
-                    <label for="nationalitySelect">国籍:</label>
-                    <select id="nationalitySelect"></select>
-                </div>
-                <div class="form-group">
-                    <label for="typeSelect">身份类型:</label>
-                    <select id="typeSelect"></select>
-                </div>
-                <div class="form-group">
-                    <label for="functionSelect">职能:</label>
-                    <select id="functionSelect"></select>
-                </div>
-                <div class="form-group">
-                    <label for="organizationSelect">机构:</label>
-                    <select id="organizationSelect"></select>
-                </div>
-                <div class="disguise-buttons">
-                    <button id="applyDisguiseButton" class="terminal-button">应用伪装</button>
-                    <button id="clearDisguiseButton" class="terminal-button">清除伪装</button>
-                </div>
-            `
-        });
+        // 创建TUI风格的伪装编辑器
+        const formContainer = this.createTUIDisguiseEditor();
 
         editView.appendChild(formContainer);
         disguiseContainer.appendChild(disguiseNav);
@@ -235,7 +225,281 @@ class IdentityView {
             <div class="keyboard-hints">Q/E:切页 ↑/↓:导航 回车:选择 ESC:返回 F1:终端</div>
         `;
     }
-    
+
+    // 创建TUI风格的伪装编辑器
+    createTUIDisguiseEditor() {
+        const container = this.domUtils.create('div', {
+            className: 'tui-disguise-editor',
+            id: 'tuiDisguiseEditor'
+        });
+
+        // 创建状态栏
+        const statusBar = this.domUtils.create('div', {
+            className: 'tui-status-bar',
+            innerHTML: `
+                <div class="tui-status-left">伪装编辑器</div>
+                <div class="tui-status-right" id="tuiStatusText">请选择伪装参数</div>
+            `
+        });
+
+        // 创建主菜单面板
+        const mainPanel = this.domUtils.create('div', {
+            className: 'tui-main-panel',
+            id: 'tuiMainPanel'
+        });
+
+        // 创建子菜单面板
+        const subPanel = this.domUtils.create('div', {
+            className: 'tui-sub-panel',
+            id: 'tuiSubPanel',
+            style: { display: 'none' }
+        });
+
+        // 创建确认面板
+        const confirmPanel = this.domUtils.create('div', {
+            className: 'tui-confirm-panel',
+            id: 'tuiConfirmPanel',
+            style: { display: 'none' }
+        });
+
+        // 创建操作提示栏
+        const hintBar = this.domUtils.create('div', {
+            className: 'tui-hint-bar',
+            id: 'tuiHintBar',
+            innerHTML: '↑/↓:导航 →/Enter:选择 ←/ESC:返回 Tab:快捷切换 A:应用 C:清除'
+        });
+
+        container.appendChild(statusBar);
+        container.appendChild(mainPanel);
+        container.appendChild(subPanel);
+        container.appendChild(confirmPanel);
+        container.appendChild(hintBar);
+
+                // 创建隐藏的传统表单元素以保持兼容性
+        const hiddenForm = this.domUtils.create('div', {
+            style: { display: 'none' },
+            innerHTML: `
+                <select id="nationalitySelect"></select>
+                <select id="typeSelect"></select>
+                <select id="functionSelect"></select>
+                <select id="organizationSelect"></select>
+                <button id="applyDisguiseButton" class="terminal-button">应用伪装</button>
+                <button id="clearDisguiseButton" class="terminal-button">清除伪装</button>
+            `
+        });
+        container.appendChild(hiddenForm);
+
+        // 初始化TUI数据
+        this.initializeTUIData();
+        
+        // 渲染主菜单
+        this.renderTUIMainMenu();
+
+        return container;
+    }
+
+    // 初始化TUI数据
+    initializeTUIData() {
+        this.tuiState = {
+            currentMenu: 'main', // 'main', 'sub', 'confirm'
+            currentCategory: null, // 'nationality', 'type', 'function', 'organization'
+            selections: {
+                nationality: null,
+                type: null,
+                function: null,
+                organization: null
+            },
+            currentIndex: 0,
+            subMenuItems: []
+        };
+    }
+
+    // 渲染主菜单
+    renderTUIMainMenu() {
+        const mainPanel = this.domUtils.get('#tuiMainPanel');
+        if (!mainPanel) return;
+
+        const categories = [
+            { key: 'nationality', label: '国籍', value: this.tuiState.selections.nationality },
+            { key: 'type', label: '身份类型', value: this.tuiState.selections.type },
+            { key: 'function', label: '职能', value: this.tuiState.selections.function },
+            { key: 'organization', label: '机构', value: this.tuiState.selections.organization }
+        ];
+
+        let html = '<div class="tui-menu-title">═══ 伪装参数设置 ═══</div>';
+        categories.forEach((category, index) => {
+            const isSelected = index === this.tuiState.currentIndex;
+            const statusIcon = category.value ? '[✓]' : '[ ]';
+            const displayValue = category.value || '未设置';
+            
+            html += `
+                <div class="tui-menu-item ${isSelected ? 'tui-selected' : ''}" data-category="${category.key}">
+                    <span class="tui-item-status">${statusIcon}</span>
+                    <span class="tui-item-label">${category.label}:</span>
+                    <span class="tui-item-value">${displayValue}</span>
+                </div>
+            `;
+        });
+
+        // 添加操作按钮
+        html += '<div class="tui-menu-separator">─────────────────</div>';
+        html += `
+            <div class="tui-menu-item ${this.tuiState.currentIndex === 4 ? 'tui-selected' : ''}" data-action="apply">
+                <span class="tui-item-label">[A] 应用伪装</span>
+            </div>
+            <div class="tui-menu-item ${this.tuiState.currentIndex === 5 ? 'tui-selected' : ''}" data-action="clear">
+                <span class="tui-item-label">[C] 清除伪装</span>
+            </div>
+        `;
+
+        mainPanel.innerHTML = html;
+        this.updateTUIStatus();
+    }
+
+    // 渲染子菜单
+    renderTUISubMenu(category) {
+        const subPanel = this.domUtils.get('#tuiSubPanel');
+        if (!subPanel) return;
+
+        let items = [];
+        switch(category) {
+            case 'nationality':
+                items = this.model ? this.model.NATIONALITIES : ["美国", "苏联", "英国", "法国", "西德", "东德"];
+                break;
+            case 'type':
+                items = this.model ? this.model.IDENTITY_TYPES : ["平民", "政府雇员", "外交人员", "情报人员", "军人", "警察", "非法者"];
+                break;
+            case 'function':
+                if (this.tuiState.selections.type && this.model) {
+                    items = this.model.getFunctionsForType(this.tuiState.selections.type);
+                }
+                break;
+            case 'organization':
+                if (this.tuiState.selections.nationality && this.tuiState.selections.type && this.model) {
+                    items = this.model.getOrganizationsForIdentity(this.tuiState.selections.nationality, this.tuiState.selections.type);
+                }
+                break;
+        }
+
+        this.tuiState.subMenuItems = items;
+        
+        let html = `<div class="tui-menu-title">══ ${this.getCategoryDisplayName(category)} ══</div>`;
+        
+        if (items.length === 0) {
+            html += '<div class="tui-menu-item tui-disabled">无可选项</div>';
+        } else {
+            items.forEach((item, index) => {
+                const isSelected = index === this.tuiState.currentIndex;
+                html += `
+                    <div class="tui-menu-item ${isSelected ? 'tui-selected' : ''}" data-value="${item}">
+                        <span class="tui-item-bullet">►</span>
+                        <span class="tui-item-text">${item}</span>
+                    </div>
+                `;
+            });
+        }
+
+        subPanel.innerHTML = html;
+        this.updateTUIStatus(`选择${this.getCategoryDisplayName(category)}`);
+    }
+
+    // 渲染确认面板
+    renderTUIConfirmPanel() {
+        const confirmPanel = this.domUtils.get('#tuiConfirmPanel');
+        if (!confirmPanel) return;
+
+        const selections = this.tuiState.selections;
+        let html = '<div class="tui-menu-title">═══ 确认伪装设置 ═══</div>';
+        
+        html += `
+            <div class="tui-confirm-item">
+                <span class="tui-confirm-label">国籍:</span>
+                <span class="tui-confirm-value">${selections.nationality || '未设置'}</span>
+            </div>
+            <div class="tui-confirm-item">
+                <span class="tui-confirm-label">身份类型:</span>
+                <span class="tui-confirm-value">${selections.type || '未设置'}</span>
+            </div>
+            <div class="tui-confirm-item">
+                <span class="tui-confirm-label">职能:</span>
+                <span class="tui-confirm-value">${selections.function || '未设置'}</span>
+            </div>
+            <div class="tui-confirm-item">
+                <span class="tui-confirm-label">机构:</span>
+                <span class="tui-confirm-value">${selections.organization || '未设置'}</span>
+            </div>
+        `;
+
+        html += '<div class="tui-menu-separator">─────────────────</div>';
+        html += `
+            <div class="tui-menu-item ${this.tuiState.currentIndex === 0 ? 'tui-selected' : ''}" data-action="confirm">
+                <span class="tui-item-label">[Enter] 确认应用</span>
+            </div>
+            <div class="tui-menu-item ${this.tuiState.currentIndex === 1 ? 'tui-selected' : ''}" data-action="cancel">
+                <span class="tui-item-label">[ESC] 取消</span>
+            </div>
+        `;
+
+        confirmPanel.innerHTML = html;
+        this.updateTUIStatus('确认设置');
+    }
+
+    // 更新TUI状态文本
+    updateTUIStatus(text = '') {
+        const statusText = this.domUtils.get('#tuiStatusText');
+        if (statusText) {
+            if (text) {
+                statusText.textContent = text;
+            } else {
+                const total = Object.values(this.tuiState.selections).filter(v => v !== null).length;
+                statusText.textContent = `已设置 ${total}/4 项参数`;
+            }
+        }
+    }
+
+    // 获取分类显示名称
+    getCategoryDisplayName(category) {
+        const names = {
+            nationality: '国籍',
+            type: '身份类型',
+            function: '职能',
+            organization: '机构'
+        };
+        return names[category] || category;
+    }
+
+    // 显示TUI面板
+    showTUIPanel(panel) {
+        const panels = ['tuiMainPanel', 'tuiSubPanel', 'tuiConfirmPanel'];
+        panels.forEach(panelId => {
+            const element = this.domUtils.get('#' + panelId);
+            if (element) {
+                element.style.display = panelId === panel ? 'block' : 'none';
+            }
+        });
+    }
+
+    // 获取TUI选择的值
+    getTUISelections() {
+        return { ...this.tuiState.selections };
+    }
+
+    // 设置TUI选择的值
+    setTUISelections(selections) {
+        this.tuiState.selections = { ...selections };
+        if (this.tuiState.currentMenu === 'main') {
+            this.renderTUIMainMenu();
+        }
+    }
+
+    // 重置TUI状态
+    resetTUIState() {
+        this.initializeTUIData();
+        this.renderTUIMainMenu();
+        this.showTUIPanel('tuiMainPanel');
+        this.tuiState.currentMenu = 'main';
+    }
+     
     // 添加隐藏滚动条的CSS样式
     addScrollableStyles() {
         const style = document.createElement('style');
@@ -389,6 +653,11 @@ class IdentityView {
         
         // 清除所有焦点状态
         this.clearAllFocus();
+        
+        // 进入TUI模式
+        if (window.identityController) {
+            window.identityController.enterTUIMode();
+        }
     }
     
     updateRealIdentity(identity) {
@@ -860,7 +1129,7 @@ class IdentityView {
                 break;
             default: 
                 headerTitle = "档案记录"; 
-                headerSubtitle = "身份信息";
+                headerSubtitle = "身份信息"; 
         }
         
         let html = `
@@ -987,7 +1256,7 @@ class IdentityView {
         for (const category of categories) {
             allContent += this.buildSingleCategoryContent(category);
         }
-        
+
         return [allContent];
     }
 

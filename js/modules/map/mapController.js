@@ -1135,4 +1135,21 @@ class MapController {
             console.log(`${accessType}无法进入: ${location.displayName} - 权限不足`);
         }
     }
+    
+    // 设置地点视图焦点并更新视觉显示（用于鼠标点击时同步焦点状态）
+    setLocationViewFocus(focusIndex) {
+        if (focusIndex >= 0 && focusIndex < this.locationViewFocusItems.length) {
+            this.locationViewFocusIndex = focusIndex;
+            this.view.updateLocationViewFocus(this.locationViewFocusIndex);
+        }
+    }
+    
+    // 处理鼠标点击时的焦点同步
+    handleMouseFocusChange(targetElement) {
+        if (targetElement.closest('#locationInfo') || targetElement.closest('#locationInfoFrame')) {
+            this.setLocationViewFocus(0);
+        } else if (targetElement.closest('#locationFooter')) {
+            this.setLocationViewFocus(1);
+        }
+    }
 }

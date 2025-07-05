@@ -134,6 +134,11 @@ class MapView {
 
     // 处理位置详情点击的方法
     handleLocationInfoClick(infoFrame) {
+        // 同步焦点状态到详情框
+        if (window.mapController) {
+            window.mapController.handleMouseFocusChange(infoFrame);
+        }
+        
         // 获取当前选中的位置 - 从模型中获取最新数据
         const locationData = window.mapController.model.getSelectedLocation();
         if (!locationData) return;
@@ -195,6 +200,11 @@ class MapView {
 
     // 处理访问状态框点击的方法
     handleLocationFooterClick(locationFooter, e) {
+        // 同步焦点状态到访问状态框
+        if (window.mapController) {
+            window.mapController.handleMouseFocusChange(e.target);
+        }
+        
         // 检查点击的是否是可进入的访问状态
         const accessInfo = e.target.closest('.access-info');
         if (!accessInfo) return;

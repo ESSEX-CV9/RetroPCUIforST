@@ -106,7 +106,7 @@ class MapView {
             locationsContainer.appendChild(this.cursorElement);
         }
         
-        // 添加：使用事件委托处理详情框的点击
+        // 添加：使用事件委托处理详情框和访问状态框的点击
         const detailsArea = this.domUtils.get('#mapDetailsArea');
         if (detailsArea) {
             this.domUtils.on(detailsArea, 'click', (e) => {
@@ -114,6 +114,13 @@ class MapView {
                 const infoFrame = e.target.closest('#locationInfoFrame');
                 if (infoFrame) {
                     this.handleLocationInfoClick(infoFrame);
+                    return;
+                }
+                
+                // 检查点击的是否是访问状态框
+                const locationFooter = e.target.closest('#locationFooter');
+                if (locationFooter) {
+                    this.handleLocationFooterClick(locationFooter, e);
                 }
             });
         }
@@ -183,6 +190,26 @@ class MapView {
             
             // 更新访问状态
             this.updateAccessStatus(locationData, newShowingHidden);
+        }
+    }
+
+    // 处理访问状态框点击的方法
+    handleLocationFooterClick(locationFooter, e) {
+        // 检查点击的是否是可进入的访问状态
+        const accessInfo = e.target.closest('.access-info');
+        if (!accessInfo) return;
+        
+        // 检查是否包含 [ENTER] 提示（即可进入状态）
+        const interactHint = accessInfo.querySelector('.interact-hint');
+        if (!interactHint) return;
+        
+        // 检查是否是正面的访问状态（positive class）
+        if (!accessInfo.classList.contains('positive')) return;
+        
+        // 调用控制器的进入地点方法
+        if (window.mapController) {
+            console.log("鼠标点击触发地点进入");
+            window.mapController.handleLocationAccess();
         }
     }
 
@@ -578,13 +605,13 @@ class MapView {
         let accessStatusHTML = '';
         if (isShowingHidden) {
             if (location.covertAccess) {
-                accessStatusHTML = '<p class="access-info covert positive">已获准入</p>';
+                accessStatusHTML = '<p class="access-info covert positive">已获准入 <span class="interact-hint">[ENTER]</span></p>';
             } else {
                 accessStatusHTML = '<p class="access-info covert negative">未获准入</p>';
             }
         } else {
             if (location.publicAccess) {
-                accessStatusHTML = '<p class="access-info positive">可进入</p>';
+                accessStatusHTML = '<p class="access-info positive">可进入 <span class="interact-hint">[ENTER]</span></p>';
             } else {
                 accessStatusHTML = '<p class="access-info negative">禁止进入</p>';
             }

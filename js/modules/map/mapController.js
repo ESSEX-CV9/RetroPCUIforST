@@ -1085,7 +1085,54 @@ class MapController {
             // 在地点详情上按Enter，切换表面/内部详情
             console.log("切换地点详情内容");
             this.view.toggleLocationDetailsContent();
+        } else if (this.locationViewFocusIndex === 1) {
+            // 在访问状态框上按Enter，执行进入操作
+            console.log("尝试进入当前地点");
+            this.handleLocationAccess();
         }
-        // 如果焦点在访问状态框上（index === 1），暂时不做操作
+    }
+    
+    // 处理地点进入操作
+    handleLocationAccess() {
+        const location = this.model.getSelectedLocation();
+        if (!location) return;
+        
+        // 获取当前显示状态（表面信息还是暗面信息）
+        const locationInfo = this.domUtils.get('#locationInfo');
+        const infoFrame = locationInfo?.querySelector('#locationInfoFrame');
+        const isShowingHidden = infoFrame?.dataset.showingHidden === 'true';
+        
+        // 根据当前显示状态检查对应的访问权限
+        let canAccess;
+        if (isShowingHidden) {
+            // 显示暗面信息时，检查秘密身份权限
+            canAccess = location.covertAccess;
+        } else {
+            // 显示表面信息时，检查公开身份权限
+            canAccess = location.publicAccess;
+        }
+        
+        if (canAccess) {
+            // 播放音效
+            if (this.audio) this.audio.play('crt-button');
+            
+            // 发布进入地点事件，可以被其他模块监听
+            this.eventBus.emit('locationEntered', {
+                locationName: location.displayName,
+                realName: location.realName,
+                hasPublicAccess: location.publicAccess,
+                hasCovertAccess: location.covertAccess,
+                isShowingHidden: isShowingHidden,
+                accessType: isShowingHidden ? 'covert' : 'public'
+            });
+            
+            const accessType = isShowingHidden ? '秘密身份' : '公开身份';
+            console.log(`${accessType}进入地点: ${location.displayName}`);
+        } else {
+            // 播放拒绝音效
+            if (this.audio) this.audio.play('crt-button-com');
+            const accessType = isShowingHidden ? '秘密身份' : '公开身份';
+            console.log(`${accessType}无法进入: ${location.displayName} - 权限不足`);
+        }
     }
 }

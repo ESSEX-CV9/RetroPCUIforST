@@ -704,12 +704,18 @@ class IdentityView {
         }
     }
     
-    updateDisguiseIdentity(identity) {
-        // 使用新的分页显示方法
+    async updateDisguiseIdentity(identity, credibility = null, riskLevel = null) {
+        // 使用新的分页显示方法 - 传递可信度数据
         if (window.identityController) {
-            this.updateDisguiseFilePageDisplay(identity, window.identityController.currentDisguiseFilePage, window.identityController.totalDisguiseFilePages);
+            await this.updateDisguiseFilePageDisplay(
+                identity, 
+                window.identityController.currentDisguiseFilePage, 
+                window.identityController.totalDisguiseFilePages,
+                credibility,
+                riskLevel
+            );
         } else {
-            this.updateDisguiseFilePageDisplay(identity, 1, 1);
+            await this.updateDisguiseFilePageDisplay(identity, 1, 1, credibility, riskLevel);
         }
         
         // 设置国籍特定样式
@@ -1217,16 +1223,16 @@ class IdentityView {
     }
 
     // 更新伪装档案显示 - 改为单页滚动模式
-    async updateDisguiseFilePageDisplay(disguise, currentPage, totalPages) {
+    async updateDisguiseFilePageDisplay(disguise, currentPage, totalPages, credibility = null, riskLevel = null) {
         const currentDisguiseDisplay = this.domUtils.get('#currentDisguiseDisplay');
         if (!currentDisguiseDisplay) return;
-
+    
         if (!disguise) {
             // 无伪装时的显示
             currentDisguiseDisplay.innerHTML = this.generateNoDisguisePage();
             return;
         }
-
+    
         // 获取扩展伪装数据
         let extendedDisguiseData = null;
         try {
@@ -1237,31 +1243,31 @@ class IdentityView {
         } catch (error) {
             console.error("获取伪装扩展数据失败:", error);
         }
-
-        // 生成所有伪装档案页面内容并一次性显示
-        const allPages = this.generateAllDisguisePages(disguise, extendedDisguiseData);
+    
+        // 生成所有伪装档案页面内容并一次性显示 - 传递可信度数据
+        const allPages = this.generateAllDisguisePages(disguise, extendedDisguiseData, credibility, riskLevel);
         currentDisguiseDisplay.innerHTML = allPages.join('');
     }
 
     // 生成所有伪装档案页面内容 - 重构为动态分页
-    generateAllDisguisePages(disguise, extendedData = null) {
+    generateAllDisguisePages(disguise, extendedData = null, credibility = null, riskLevel = null) {
         if (!disguise) {
             return [this.generateNoDisguisePage()];
         }
-
-        // 直接生成所有类别的内容，不再分页
-        const categories = this.generateDisguiseCategoriesData(disguise, extendedData);
+    
+        // 直接生成所有类别的内容，不再分页 - 传递可信度数据
+        const categories = this.generateDisguiseCategoriesData(disguise, extendedData, credibility, riskLevel);
         
         let allContent = '';
         for (const category of categories) {
             allContent += this.buildSingleCategoryContent(category);
         }
-
+    
         return [allContent];
     }
 
     // 生成伪装系统的所有类别数据
-    generateDisguiseCategoriesData(disguise, extendedData = null) {
+    generateDisguiseCategoriesData(disguise, extendedData = null, credibility = null, riskLevel = null) {
         const categories = [];
         
         // 从扩展数据中提取信息，如果没有则使用默认值
@@ -1311,13 +1317,27 @@ class IdentityView {
         });
 
         // 第3类别：技能评估（使用真实数据）
-        const capabilityData = extensions && extensions.disguiseCapability ? extensions.disguiseCapability : {
-            "身份可信度": "85%",
-            "文件完整性": "完整",
-            "背景故事": "已构建",
-            "识破风险": "中等",
-            "维持难度": "标准"
-        };
+        let capabilityData;
+        if (credibility !== null && riskLevel) {
+            // 使用真实的可信度数据
+            const credibilityPercentage = Math.round(credibility * 100);
+            capabilityData = {
+                "身份可信度": `${credibilityPercentage}%`,
+                "文件完整性": "完整",
+                "背景故事": "已构建",
+                "识破风险": riskLevel.level,
+                "维持难度": "标准"
+            };
+        } else {
+            // 回退到默认数据
+            capabilityData = extensions && extensions.disguiseCapability ? extensions.disguiseCapability : {
+                "身份可信度": "85%",
+                "文件完整性": "完整", 
+                "背景故事": "已构建",
+                "识破风险": "中等",
+                "维持难度": "标准"
+            };
+        }
         
         categories.push({
             headerTitle: '伪装技能评估',
@@ -1495,7 +1515,6 @@ class IdentityView {
                                 <div class="credibility-fill" id="credibilityFill"></div>
                                 <div class="credibility-text" id="credibilityText"></div>
                             </div>
-                            <div class="risk-level" id="riskLevel"></div>
                         `
                     });
                     
@@ -1528,10 +1547,10 @@ class IdentityView {
                     statusElement.style.color = riskLevel ? riskLevel.color : 'gray';
                 }
                 
-                if (riskElement) {
-                    riskElement.textContent = `识破风险: ${riskLevel ? riskLevel.level : '未知'}`;
-                    riskElement.style.color = riskLevel ? riskLevel.color : 'gray';
-                }
+                // if (riskElement) {
+                //     riskElement.textContent = `识破风险: ${riskLevel ? riskLevel.level : '未知'}`;
+                //     riskElement.style.color = riskLevel ? riskLevel.color : 'gray';
+                // }
                 
                 // 显示可信度容器
                 credibilityElement.style.display = 'block';

@@ -1252,8 +1252,8 @@
     background: rgba(0, 20, 0, 0.8);
     border: 1px solid #33ff33;
     border-radius: 4px;
-    padding: 15px;
-    margin: 15px 0;
+    padding: 8px 12px; /* 减少内边距：从15px改为8px 12px */
+    margin: 8px 0; /* 减少外边距：从15px 0改为8px 0 */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
@@ -1261,34 +1261,35 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px; /* 减少底部边距：从10px改为6px */
 }
 
 .credibility-title {
     font-weight: bold;
     color: #33ff33;
     text-shadow: 0 0 3px rgba(51, 255, 51, 0.5);
+    font-size: 0.9rem; /* 新增：减少字体大小 */
 }
 
 .credibility-status {
-    font-size: 0.9rem;
+    font-size: 0.8rem; /* 进一步减少字体大小：从0.9rem改为0.8rem */
     font-weight: bold;
 }
 
 .credibility-bar {
     background: rgba(0, 0, 0, 0.6);
     border: 1px solid rgba(51, 255, 51, 0.5);
-    border-radius: 10px;
-    height: 20px;
+    border-radius: 8px; /* 减少圆角：从10px改为8px */
+    height: 12px; /* 减少高度：从20px改为12px */
     position: relative;
-    margin-bottom: 8px;
+    margin-bottom: 0; /* 移除底部边距：从8px改为0 */
     overflow: hidden;
 }
 
 .credibility-fill {
     height: 100%;
     background: #33ff33;
-    border-radius: 9px;
+    border-radius: 7px; /* 相应调整圆角：从9px改为7px */
     transition: width 0.3s ease;
     position: relative;
 }
@@ -1298,19 +1299,21 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 0.8rem;
+    font-size: 0.7rem; /* 减少字体大小：从0.8rem改为0.7rem */
     font-weight: bold;
-    color: #ffffff;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    color: #000000;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7);
     z-index: 2;
 }
 
+/*
 .risk-level {
     text-align: center;
     font-size: 0.85rem;
     font-weight: bold;
     margin-top: 5px;
 }
+*/
 
 /* 琥珀色模式 - 可信度显示 */
 .status-interface.amber-mode .credibility-container {

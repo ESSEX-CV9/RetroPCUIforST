@@ -626,9 +626,24 @@ class IdentityController {
             const result = await this.model.setDisguiseIdentityWithCredibility(nationality, type, func, organization);
             
             if (result) {
-                // 更新伪装显示
+                // 获取新的伪装身份和可信度数据
                 const newDisguise = await this.model.getDisguiseIdentity();
-                this.view.updateDisguiseIdentity(newDisguise);
+                
+                // 获取可信度数据
+                let credibility = null;
+                let riskLevel = null;
+                try {
+                    const identityService = this.serviceLocator.get('identityService');
+                    if (identityService) {
+                        credibility = await identityService.calculateCurrentDisguiseCredibility();
+                        riskLevel = await identityService.getCurrentDisguiseRiskLevel();
+                    }
+                } catch (error) {
+                    console.warn("获取可信度数据失败:", error);
+                }
+                
+                // 更新伪装显示 - 传递可信度数据
+                await this.view.updateDisguiseIdentity(newDisguise, credibility, riskLevel);
                 
                 // 更新可信度显示
                 await this.updateCredibilityDisplay();
@@ -651,8 +666,8 @@ class IdentityController {
             const result = await this.model.clearDisguise();
             
             if (result) {
-                // 更新伪装显示
-                this.view.updateDisguiseIdentity(null);
+                // 更新伪装显示 - 清除时不需要可信度数据
+                await this.view.updateDisguiseIdentity(null);
                 
                 // 播放音效
                 if (this.audio) this.audio.play('systemBeep');
@@ -675,7 +690,25 @@ class IdentityController {
             
             this.view.updateRealIdentity(realId);
             this.view.updateCoverIdentity(coverId);
-            this.view.updateDisguiseIdentity(disguiseId);
+
+            // 如果有伪装身份，获取可信度数据
+            if (disguiseId) {
+                let credibility = null;
+                let riskLevel = null;
+                try {
+                    const identityService = this.serviceLocator.get('identityService');
+                    if (identityService) {
+                        credibility = await identityService.calculateCurrentDisguiseCredibility();
+                        riskLevel = await identityService.getCurrentDisguiseRiskLevel();
+                    }
+                } catch (error) {
+                    console.warn("获取可信度数据失败:", error);
+                }
+                
+                await this.view.updateDisguiseIdentity(disguiseId, credibility, riskLevel);
+            } else {
+                await this.view.updateDisguiseIdentity(null);
+            }
             
             if (this.view.basicInfoPage.style.display !== 'none') {
                 await this.switchIdentityView(this.currentIdentityType);

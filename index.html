@@ -36,6 +36,8 @@
     <link rel="stylesheet" href="css/map.css">
     <!-- identity.css: 身份信息界面样式 -->
     <link rel="stylesheet" href="css/identity.css">
+    <!-- locationAction.css: 地点行动界面样式 -->
+    <link rel="stylesheet" href="css/locationAction.css">
 </head>
 <body>
     <div class="computer-wrapper">
@@ -75,6 +77,41 @@
                             <div class="status-content">
                                 </div>
                             <div class="status-footer"></div>
+                        </div>
+
+                        <!-- 地点行动界面 -->
+                        <div class="location-action-interface" id="locationActionInterface" style="display: none;">
+                            <div class="location-action-container">
+                                <!-- 上半部分：地点图片 -->
+                                <div class="location-action-scene">
+                                    <div class="tui-frame scene-frame">
+                                        <div class="tui-title">地点视觉</div>
+                                        <div class="scene-image-container">
+                                            <img id="locationSceneImage" class="scene-image" alt="地点场景" />
+                                            <div class="scene-info-overlay">
+                                                <div class="scene-location-name" id="sceneLocationName">地点名称</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 下半部分：故事文字 -->
+                                <div class="location-action-story">
+                                    <div class="tui-frame story-frame">
+                                        <div class="tui-title">行动报告</div>
+                                        <div class="story-content" id="locationStoryContent">
+                                            <p>正在加载地点信息...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 底部提示栏 -->
+                            <div class="location-action-footer">
+                                <div class="tui-hint-bar">
+                                    ESC: 返回地图 | F1: 返回终端
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -365,6 +402,28 @@
         // 只有在完全开机状态下才允许操作
         return systemState === SystemState.POWERED_ON;
     };
+    
+    // 地点行动模块配置
+    window.locationActionConfig = {
+        // 图片资源路径配置
+        imagePaths: {
+            // 地点图片目录
+            locationsDir: 'http://localhost:3000/assets/images/locations/',
+            // 默认占位图片
+            placeholder: 'http://localhost:3000/assets/images/placeholder.jpg',
+            // 支持的图片格式（按优先级排序）
+            supportedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif']
+        },
+        
+        // 故事生成配置
+        story: {
+            // 模拟AI延迟范围（毫秒）
+            minDelay: 1500,
+            maxDelay: 3500,
+            // 状态过期时间（毫秒，默认24小时）
+            stateExpiration: 24 * 60 * 60 * 1000
+        }
+    };
 </script>
 
     <!-- 引入JavaScript文件 -->
@@ -418,6 +477,12 @@
 
     <!-- 音频系统模块 -->
     <script src="js/modules/audio/audioService.js"></script>
+
+    <!-- 地点行动模块 -->
+    <script src="js/modules/locationAction/locationActionModel.js"></script>
+    <script src="js/modules/locationAction/locationActionView.js"></script>
+    <script src="js/modules/locationAction/locationActionService.js"></script>
+    <script src="js/modules/locationAction/locationActionController.js"></script>
 
     <!-- 主入口文件 -->
     <script src="js/main.js"></script>

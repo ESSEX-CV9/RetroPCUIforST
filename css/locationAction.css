@@ -1,0 +1,347 @@
+/* ==================== 地点行动界面样式 ==================== */
+/* 基于80年代TUI风格设计 */
+
+.location-action-interface {
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    color: #33ff33;
+    font-family: 'VT323', monospace;
+    position: relative;
+    z-index: 5;
+    text-shadow: 0 0 5px rgba(51, 255, 51, 0.8);
+    display: none;
+    flex-direction: column;
+}
+
+.location-action-container {
+    width: 100%;
+    height: calc(100% - 30px); /* 减去底部提示栏高度 */
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    gap: 10px;
+}
+
+/* ==================== 上半部分：场景区域 ==================== */
+
+.location-action-scene {
+    flex: 2; /* 占据五分之二的空间 */
+    min-height: 0;
+}
+
+.scene-frame {
+    height: 100%;
+    position: relative;
+}
+
+.scene-frame .tui-title {
+    background-color: #000;
+    color: #33ff33;
+    padding: 5px 10px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: 1px solid #33ff33;
+    border-bottom: none;
+    text-align: center;
+}
+
+.scene-image-container {
+    width: 100%;
+    height: calc(100% - 30px); /* 减去tui-title高度 */
+    position: relative;
+    background-color: #111;
+    border: 1px solid #33ff33;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scene-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: grayscale(100%) sepia(100%) hue-rotate(80deg) saturate(2) contrast(1.3) brightness(0.8);
+}
+
+.scene-info-overlay {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 1px solid #33ff33;
+    padding: 5px 10px;
+}
+
+.scene-location-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ==================== 下半部分：故事区域 ==================== */
+
+.location-action-story {
+    flex: 3; /* 占据五分之三的空间 */
+    min-height: 0;
+}
+
+.story-frame {
+    height: 100%;
+}
+
+.story-frame .tui-title {
+    background-color: #000;
+    color: #33ff33;
+    padding: 5px 10px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: 1px solid #33ff33;
+    border-bottom: none;
+    text-align: center;
+}
+
+.story-content {
+    height: calc(100% - 30px); /* 减去tui-title高度 */
+    padding: 15px;
+    overflow-y: auto;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: #000;
+    border: 1px solid #33ff33;
+    position: relative;
+}
+
+/* 故事内容段落样式 */
+.story-content p {
+    margin-bottom: 1em;
+}
+
+/* ==================== 加载状态样式 ==================== */
+
+.story-content.story-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.story-loading-text {
+    font-style: italic;
+    opacity: 0.7;
+    text-align: center;
+}
+
+.story-loading-text::after {
+    content: "";
+    animation: loadingDots 1.5s infinite;
+}
+
+@keyframes loadingDots {
+    0%, 20% { content: ""; }
+    40% { content: "."; }
+    60% { content: ".."; }
+    80%, 100% { content: "..."; }
+}
+
+/* ==================== 错误状态样式 ==================== */
+
+.story-error {
+    color: #ff4444;
+    text-align: center;
+    font-style: italic;
+    padding: 20px;
+}
+
+/* ==================== 滚动条样式 ==================== */
+
+.story-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.story-content::-webkit-scrollbar-track {
+    background: #222;
+    border: 1px solid #444;
+}
+
+.story-content::-webkit-scrollbar-thumb {
+    background: #33ff33;
+    border-radius: 2px;
+}
+
+.story-content::-webkit-scrollbar-thumb:hover {
+    background: #44ff44;
+}
+
+/* Firefox 滚动条 */
+.story-content {
+    scrollbar-width: thin;
+    scrollbar-color: #33ff33 #222;
+}
+
+/* ==================== 底部提示栏 ==================== */
+
+.location-action-footer {
+    height: 30px;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    padding: 0 15px;
+    display: flex;
+    align-items: center;
+    background-color: #000;
+}
+
+.tui-hint-bar {
+    background-color: #000;
+    color: #33ff33;
+    padding: 5px 10px;
+    font-size: 1rem;
+    border: 1px solid #444;
+    width: 100%;
+    text-align: center;
+}
+
+/* ==================== 琥珀色模式支持 ==================== */
+
+.amber-mode .location-action-interface {
+    color: #ffb000;
+    text-shadow: 0 0 5px rgba(255, 176, 0, 0.8);
+}
+
+.amber-mode .scene-frame .tui-title,
+.amber-mode .story-frame .tui-title,
+.amber-mode .tui-hint-bar {
+    color: #ffb000;
+    border-color: #ffb000;
+}
+
+.amber-mode .scene-image-container,
+.amber-mode .story-content {
+    border-color: #ffb000;
+}
+
+.amber-mode .scene-info-overlay {
+    border-color: #ffb000;
+}
+
+.amber-mode .story-content::-webkit-scrollbar-thumb {
+    background: #ffb000;
+}
+
+.amber-mode .story-content::-webkit-scrollbar-thumb:hover {
+    background: #ffcc00;
+}
+
+.amber-mode .story-content::-webkit-scrollbar-track {
+    background: #332200;
+    border-color: #aa8800;
+}
+
+.amber-mode .story-content {
+    scrollbar-color: #ffb000 #332200;
+}
+
+.amber-mode .story-error {
+    color: #ff6600;
+}
+
+/* ==================== TUI框架通用样式（继承现有样式） ==================== */
+
+.location-action-interface .tui-frame {
+    border: 1px solid #33ff33;
+    background-color: #000;
+    position: relative;
+}
+
+.location-action-interface .tui-title {
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ==================== 响应式布局 ==================== */
+
+@media (max-height: 600px) {
+    .location-action-container {
+        padding: 10px;
+        gap: 8px;
+    }
+    
+    .scene-frame .tui-title,
+    .story-frame .tui-title {
+        padding: 3px 8px;
+        font-size: 1rem;
+    }
+    
+    .story-content {
+        padding: 10px;
+        font-size: 1rem;
+        line-height: 1.4;
+    }
+}
+
+@media (max-width: 800px) {
+    .scene-info-overlay {
+        bottom: 5px;
+        left: 5px;
+        right: 5px;
+        padding: 3px 8px;
+    }
+    
+    .scene-location-name {
+        font-size: 1rem;
+    }
+}
+
+/* ==================== 特殊视觉效果 ==================== */
+
+/* CRT扫描线效果（可选） */
+.location-action-interface::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        rgba(51, 255, 51, 0.05) 50%,
+        rgba(0, 0, 0, 0.05) 50%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.3;
+}
+
+/* 琥珀模式的扫描线 */
+.amber-mode .location-action-interface::before {
+    background: linear-gradient(
+        rgba(255, 176, 0, 0.05) 50%,
+        rgba(0, 0, 0, 0.05) 50%
+    );
+    background-size: 100% 4px;
+}
+
+/* 琥珀模式下的图片滤镜 */
+.amber-mode .scene-image {
+    filter: grayscale(100%) sepia(100%) hue-rotate(35deg) saturate(3) contrast(1.3) brightness(0.8);
+}
+
+/* 焦点和选中状态（预留给未来交互功能） */
+.story-content:focus {
+    outline: 1px solid #33ff33;
+    outline-offset: -1px;
+}
+
+.amber-mode .story-content:focus {
+    outline-color: #ffb000;
+} 

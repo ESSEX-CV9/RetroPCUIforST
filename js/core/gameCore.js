@@ -184,8 +184,49 @@ class GameCore {
                 // 注册到界面服务
                 interfaceService.registerController('identity', identityController);
 
+                // 12. 初始化地点行动MVC
+                console.log("初始化地点行动系统...");
+                const locationActionModel = new LocationActionModel(serviceLocator);
+                const locationActionView = new LocationActionView(serviceLocator);
+                const locationActionController = new LocationActionController(locationActionModel, locationActionView, serviceLocator);
+
+                // 注册为组件
+                this.registerComponent('locationActionModel', locationActionModel);
+                this.registerComponent('locationActionView', locationActionView);
+                this.registerComponent('locationActionController', locationActionController);
+
+                // 初始化地点行动服务
+                const locationActionService = new LocationActionService();
+                serviceLocator.register('locationAction', locationActionService);
+                this.registerComponent('locationActionService', locationActionService);
+
+                // 注册到界面服务
+                interfaceService.registerController('locationAction', locationActionController);
+
+                // 初始化地点行动控制器
+                locationActionController.initialize().catch(error => {
+                    console.error("地点行动控制器初始化失败:", error);
+                });
+
                 console.log("游戏核心初始化完成");
                 this.initialized = true;
+                
+                // 尝试恢复界面状态（页面刷新后）
+                setTimeout(async () => {
+                    try {
+                        const restored = await locationActionController.tryRestoreState();
+                        if (!restored) {
+                            console.log("未找到需要恢复的地点行动状态");
+                        }
+                        
+                        // 确保F6按钮状态正确初始化
+                        if (interfaceService && typeof interfaceService.updateActionButtonText === 'function') {
+                            interfaceService.updateActionButtonText();
+                        }
+                    } catch (error) {
+                        console.error("恢复界面状态失败:", error);
+                    }
+                }, 100); // 延迟100ms确保所有组件都已初始化
 
                 // 发布初始化完成事件
                 const eventBus = serviceLocator.get('eventBus');

@@ -18,6 +18,10 @@ class InterfaceService {
             identity: {
                 element: document.getElementById('statusInterface'),
                 controller: null
+            },
+            locationAction: {
+                element: document.getElementById('locationActionInterface'),
+                controller: null
             }
         };
         
@@ -57,6 +61,7 @@ class InterfaceService {
         const f1Button = dom.get('#fnButton1');
         const f2Button = dom.get('#fnButton2');
         const f5Button = dom.get('#fnButton5');
+        const f6Button = dom.get('#fnButton6');
         
         // 终端按钮
         if (f1Button) {
@@ -79,6 +84,15 @@ class InterfaceService {
             f5Button.textContent = '地图';
             dom.on(f5Button, 'click', () => {
                 this.handleButtonClick('map');
+            });
+        }
+        
+        // 行动按钮
+        if (f6Button) {
+            // 初始化按钮文本
+            this.updateActionButtonText();
+            dom.on(f6Button, 'click', () => {
+                this.handleActionButton();
             });
         }
     }
@@ -123,6 +137,10 @@ class InterfaceService {
                     e.preventDefault();
                     this.switchTo('map');
                     break;
+                case 'F6':
+                    e.preventDefault();
+                    this.handleActionButton();
+                    break;
             }
         });
     }
@@ -141,6 +159,19 @@ class InterfaceService {
             
             eventBus.on('testModeChanged', (isTestMode) => {
                 this.isTestMode = isTestMode;
+            });
+            
+            // 监听地点行动相关事件，用于更新按钮状态
+            eventBus.on('locationEntered', () => {
+                setTimeout(() => {
+                    this.updateActionButtonText();
+                }, 100);
+            });
+            
+            eventBus.on('locationActionStateCleared', () => {
+                setTimeout(() => {
+                    this.updateActionButtonText();
+                }, 100);
             });
         }
     }
@@ -181,8 +212,17 @@ class InterfaceService {
             // 2. 特殊状态更新 - 隐藏当前界面
             if (this.activeInterface === 'map' && currentInterface.controller) {
                 // 使用控制器的模型设置可见性
-                if (currentInterface.controller.model) {
+                if (currentInterface.controller.model && typeof currentInterface.controller.model.setVisibility === 'function') {
                     currentInterface.controller.model.setVisibility(false);
+                }
+            } else if (this.activeInterface === 'locationAction' && currentInterface.controller) {
+                // 隐藏地点行动界面并清除状态
+                if (currentInterface.controller.model && typeof currentInterface.controller.model.setVisibility === 'function') {
+                    currentInterface.controller.model.setVisibility(false);
+                }
+                // 清除保存的状态（当切换到其他界面时）
+                if (typeof currentInterface.controller.clearLocationActionState === 'function') {
+                    currentInterface.controller.clearLocationActionState();
                 }
             } else if (this.activeInterface === 'identity' && window.identityController) {
                 // 调用身份控制器的隐藏回调
@@ -204,7 +244,7 @@ class InterfaceService {
             // 5. 特殊状态更新和视图刷新 - 显示目标界面
             if (interfaceName === 'map' && targetInterface.controller) {
                 // 更新地图状态 - 使用控制器的模型设置可见性
-                if (targetInterface.controller.model) {
+                if (targetInterface.controller.model && typeof targetInterface.controller.model.setVisibility === 'function') {
                     targetInterface.controller.model.setVisibility(true);
                 }
                 
@@ -220,6 +260,11 @@ class InterfaceService {
                 
                 // 刷新身份显示
                 window.identityController.updateIdentityDisplays();
+            } else if (interfaceName === 'locationAction' && targetInterface.controller) {
+                // 地点行动界面特殊处理
+                if (targetInterface.controller.model && typeof targetInterface.controller.model.setVisibility === 'function') {
+                    targetInterface.controller.model.setVisibility(true);
+                }
             } else if (interfaceName === 'terminal') {
                 // 终端界面特殊处理 - 聚焦到输入框
                 setTimeout(() => {
@@ -242,6 +287,11 @@ class InterfaceService {
         if (window.gameController) {
             window.gameController.saveSettings();
         }
+        
+        // 更新行动按钮状态
+        setTimeout(() => {
+            this.updateActionButtonText();
+        }, 100);
         
         return true;
     }
@@ -274,5 +324,102 @@ class InterfaceService {
      */
     getActiveInterface() {
         return this.activeInterface;
+    }
+    
+    /**
+     * 处理行动按钮点击
+     */
+    handleActionButton() {
+        // 播放按钮音效
+        const audio = window.ServiceLocator.get('audio');
+        if (audio) {
+            audio.play('functionButton');
+        }
+        
+        // 检查系统是否可操作
+        const gameCore = window.GameCore;
+        if (!gameCore || !gameCore.isSystemOperational()) {
+            return;
+        }
+        
+        // 检查是否有可恢复的地点行动状态
+        if (this.hasLocationActionState()) {
+            // 恢复到地点行动界面
+            console.log('F6按钮: 恢复地点行动界面');
+            this.restoreLocationAction();
+        } else {
+            // 跳转到地图界面，引导用户选择地点
+            console.log('F6按钮: 跳转到地图界面');
+            this.switchTo('map');
+            
+            // 显示提示信息（可选）
+            setTimeout(() => {
+                console.log('提示: 请在地图中选择一个地点进入行动模式');
+            }, 500);
+        }
+    }
+    
+    /**
+     * 检查是否有可恢复的地点行动状态
+     * @returns {boolean} 是否有可恢复状态
+     */
+    hasLocationActionState() {
+        try {
+            const storage = window.ServiceLocator.get('storage') || window.StorageUtils;
+            if (!storage) return false;
+            
+            const state = storage.load('currentInterface');
+            if (state && state.interface === 'locationAction' && state.locationData) {
+                // 检查状态是否过期
+                const config = window.locationActionConfig?.story;
+                const expiration = config?.stateExpiration || (24 * 60 * 60 * 1000);
+                const isExpired = (Date.now() - state.timestamp) > expiration;
+                return !isExpired;
+            }
+            return false;
+        } catch (error) {
+            console.error('检查地点行动状态失败:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * 恢复地点行动界面
+     */
+    async restoreLocationAction() {
+        try {
+            const locationActionController = this.interfaces.locationAction?.controller;
+            if (locationActionController && typeof locationActionController.tryRestoreState === 'function') {
+                const restored = await locationActionController.tryRestoreState();
+                if (!restored) {
+                    // 恢复失败，跳转到地图
+                    console.log('地点行动状态恢复失败，跳转到地图');
+                    this.switchTo('map');
+                }
+            } else {
+                // 控制器不可用，跳转到地图
+                console.log('地点行动控制器不可用，跳转到地图');
+                this.switchTo('map');
+            }
+        } catch (error) {
+            console.error('恢复地点行动界面失败:', error);
+            this.switchTo('map');
+        }
+    }
+    
+    /**
+     * 更新行动按钮文本
+     */
+    updateActionButtonText() {
+        const dom = window.DOMUtils;
+        const f6Button = dom.get('#fnButton6');
+        
+        if (f6Button) {
+            if (this.hasLocationActionState()) {
+                f6Button.textContent = '返回行动';
+            } else {
+                f6Button.textContent = '选择地点';
+            }
+        }
     }
 }

@@ -273,11 +273,7 @@ class MapView {
         }
 
         // 更新当前位置显示
-        if (locations[currentLocation]) {
-            this.mapCurrentLocation.textContent = currentLocation;
-        } else {
-            this.mapCurrentLocation.textContent = "未知";
-        }
+        this.mapCurrentLocation.textContent = currentLocation || "未知";
 
         // 渲染位置列表，传递selectedIndex
         this.renderLocationList(locations, currentLocation, selectedIndex);

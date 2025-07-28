@@ -224,7 +224,7 @@ class GameCore {
                             console.log("未找到需要恢复的地点行动状态");
                         }
                         
-                        // 确保F6按钮状态正确初始化
+                        // 确保F6按钮文本正确初始化为"行动"
                         if (interfaceService && typeof interfaceService.updateActionButtonText === 'function') {
                             interfaceService.updateActionButtonText();
                         }

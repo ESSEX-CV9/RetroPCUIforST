@@ -89,8 +89,8 @@ class InterfaceService {
         
         // 行动按钮
         if (f6Button) {
-            // 初始化按钮文本
-            this.updateActionButtonText();
+            // 固定显示"行动"
+            f6Button.textContent = '行动';
             dom.on(f6Button, 'click', () => {
                 this.handleActionButton();
             });
@@ -161,17 +161,13 @@ class InterfaceService {
                 this.isTestMode = isTestMode;
             });
             
-            // 监听地点行动相关事件，用于更新按钮状态
+            // 监听地点行动相关事件（按钮文本已固定，无需更新）
             eventBus.on('locationEntered', () => {
-                setTimeout(() => {
-                    this.updateActionButtonText();
-                }, 100);
+                // 按钮文本固定为"行动"，无需动态更新
             });
             
             eventBus.on('locationActionStateCleared', () => {
-                setTimeout(() => {
-                    this.updateActionButtonText();
-                }, 100);
+                // 按钮文本固定为"行动"，无需动态更新
             });
         }
     }
@@ -289,10 +285,7 @@ class InterfaceService {
             window.gameController.saveSettings();
         }
         
-        // 更新行动按钮状态
-        setTimeout(() => {
-            this.updateActionButtonText();
-        }, 100);
+        // 按钮文本已固定为"行动"，无需更新
         
         return true;
     }
@@ -424,21 +417,8 @@ class InterfaceService {
         const f6Button = dom.get('#fnButton6');
         
         if (f6Button) {
-            // 新的智能按钮文本逻辑：
-            // 1. 优先检查地图当前位置
-            const mapModel = this.getMapModel();
-            const currentLocation = mapModel?.getCurrentLocation();
-            
-            if (currentLocation && currentLocation.name && mapModel.isLocationVisible(currentLocation.name)) {
-                // 显示具体地点名称，但要限制长度避免按钮过宽
-                const locationName = currentLocation.name;
-                const displayName = locationName.length > 6 ? locationName.substring(0, 6) + '...' : locationName;
-                f6Button.textContent = `进入${displayName}`;
-            } else if (this.hasLocationActionState()) {
-                f6Button.textContent = '返回行动';
-            } else {
-                f6Button.textContent = '选择地点';
-            }
+            // 固定显示"行动"
+            f6Button.textContent = '行动';
         }
     }
     

@@ -216,14 +216,15 @@ class InterfaceService {
                     currentInterface.controller.model.setVisibility(false);
                 }
             } else if (this.activeInterface === 'locationAction' && currentInterface.controller) {
-                // 隐藏地点行动界面并清除状态
+                // 隐藏地点行动界面但不清除状态（支持暂时离开后快速返回）
                 if (currentInterface.controller.model && typeof currentInterface.controller.model.setVisibility === 'function') {
                     currentInterface.controller.model.setVisibility(false);
                 }
-                // 清除保存的状态（当切换到其他界面时）
-                if (typeof currentInterface.controller.clearLocationActionState === 'function') {
-                    currentInterface.controller.clearLocationActionState();
-                }
+                // 注释掉自动清除状态的代码，改为保持状态以支持快速返回
+                // if (typeof currentInterface.controller.clearLocationActionState === 'function') {
+                //     currentInterface.controller.clearLocationActionState();
+                // }
+                console.log('地点行动界面已隐藏，状态保持以便快速返回');
             } else if (this.activeInterface === 'identity' && window.identityController) {
                 // 调用身份控制器的隐藏回调
                 if (typeof window.identityController.onInterfaceHidden === 'function') {
@@ -342,13 +343,21 @@ class InterfaceService {
             return;
         }
         
-        // 检查是否有可恢复的地点行动状态
-        if (this.hasLocationActionState()) {
-            // 恢复到地点行动界面
+        // 新的优先级逻辑：
+        // 1. 首先检查地图是否有当前位置
+        const mapModel = this.getMapModel();
+        const currentLocation = mapModel?.getCurrentLocation();
+        
+        if (currentLocation && currentLocation.name && mapModel.isLocationVisible(currentLocation.name)) {
+            // 2. 如果有当前位置，直接进入该位置的行动界面
+            console.log('F6按钮: 直接进入当前地点', currentLocation.name);
+            this.enterLocationDirectly(currentLocation.name);
+        } else if (this.hasLocationActionState()) {
+            // 3. 如果没有当前位置但有保存状态，恢复状态
             console.log('F6按钮: 恢复地点行动界面');
             this.restoreLocationAction();
         } else {
-            // 跳转到地图界面，引导用户选择地点
+            // 4. 都没有，跳转到地图让用户选择
             console.log('F6按钮: 跳转到地图界面');
             this.switchTo('map');
             
@@ -415,11 +424,75 @@ class InterfaceService {
         const f6Button = dom.get('#fnButton6');
         
         if (f6Button) {
-            if (this.hasLocationActionState()) {
+            // 新的智能按钮文本逻辑：
+            // 1. 优先检查地图当前位置
+            const mapModel = this.getMapModel();
+            const currentLocation = mapModel?.getCurrentLocation();
+            
+            if (currentLocation && currentLocation.name && mapModel.isLocationVisible(currentLocation.name)) {
+                // 显示具体地点名称，但要限制长度避免按钮过宽
+                const locationName = currentLocation.name;
+                const displayName = locationName.length > 6 ? locationName.substring(0, 6) + '...' : locationName;
+                f6Button.textContent = `进入${displayName}`;
+            } else if (this.hasLocationActionState()) {
                 f6Button.textContent = '返回行动';
             } else {
                 f6Button.textContent = '选择地点';
             }
+        }
+    }
+    
+    /**
+     * 获取地图模型的辅助方法
+     * @returns {object|null} 地图模型实例
+     */
+    getMapModel() {
+        const gameCore = window.GameCore;
+        return gameCore?.getComponent('mapModel');
+    }
+    
+    /**
+     * 直接进入指定地点的行动界面
+     * @param {string} locationName - 地点名称
+     */
+    enterLocationDirectly(locationName) {
+        const mapModel = this.getMapModel();
+        if (!mapModel) {
+            console.error('无法获取地图模型');
+            return;
+        }
+        
+        const location = mapModel.getLocation(locationName);
+        if (!location) {
+            console.error(`地点不存在: ${locationName}`);
+            return;
+        }
+        
+        // 构建地点数据 - 使用地图模型的 getSelectedLocation 格式
+        mapModel.selectLocation(locationName);
+        const selectedLocation = mapModel.getSelectedLocation();
+        
+        if (!selectedLocation) {
+            console.error(`无法选择地点: ${locationName}`);
+            return;
+        }
+        
+        // 构建符合 locationEntered 事件格式的数据
+        const locationEventData = {
+            locationName: selectedLocation.displayName,
+            realName: selectedLocation.realName,
+            hasPublicAccess: selectedLocation.publicAccess,
+            hasCovertAccess: selectedLocation.covertAccess,
+            isShowingHidden: false, // 默认显示公开信息
+            accessType: 'public' // 默认公开访问
+        };
+        
+        // 发布进入地点事件
+        const eventBus = window.ServiceLocator.get('eventBus');
+        if (eventBus) {
+            eventBus.emit('locationEntered', locationEventData);
+        } else {
+            console.error('无法获取事件总线');
         }
     }
 }

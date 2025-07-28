@@ -1097,42 +1097,33 @@ class MapController {
         const location = this.model.getSelectedLocation();
         if (!location) return;
         
-        // 获取当前显示状态（表面信息还是暗面信息）
-        const locationInfo = this.domUtils.get('#locationInfo');
-        const infoFrame = locationInfo?.querySelector('#locationInfoFrame');
-        const isShowingHidden = infoFrame?.dataset.showingHidden === 'true';
-        
-        // 根据当前显示状态检查对应的访问权限
-        let canAccess;
-        if (isShowingHidden) {
-            // 显示暗面信息时，检查秘密身份权限
-            canAccess = location.covertAccess;
-        } else {
-            // 显示表面信息时，检查公开身份权限
-            canAccess = location.publicAccess;
+        // 获取地图服务
+        const mapService = this.serviceLocator?.get('map');
+        if (!mapService) {
+            console.error('地图服务未找到');
+            return;
         }
         
-        if (canAccess) {
-            // 播放音效
+        // 获取当前显示状态（表面信息还是暗面信息）
+        const locationInfo = this.domUtils.get('#locationInfo');
+        const isShowingHidden = mapService.getLocationDisplayState(locationInfo);
+        
+        // 使用服务层处理地点进入
+        const result = mapService.handleLocationEntry(location, isShowingHidden, this.model);
+        
+        if (result.success) {
+            // 播放成功音效
             if (this.audio) this.audio.play('crt-button');
             
-            // 发布进入地点事件，可以被其他模块监听
-            this.eventBus.emit('locationEntered', {
-                locationName: location.displayName,
-                realName: location.realName,
-                hasPublicAccess: location.publicAccess,
-                hasCovertAccess: location.covertAccess,
-                isShowingHidden: isShowingHidden,
-                accessType: isShowingHidden ? 'covert' : 'public'
-            });
+            // 发布进入地点事件
+            this.eventBus.emit('locationEntered', result.locationEventData);
             
-            const accessType = isShowingHidden ? '秘密身份' : '公开身份';
-            console.log(`${accessType}进入地点: ${location.displayName}`);
+            console.log(result.message);
         } else {
             // 播放拒绝音效
             if (this.audio) this.audio.play('crt-button-com');
-            const accessType = isShowingHidden ? '秘密身份' : '公开身份';
-            console.log(`${accessType}无法进入: ${location.displayName} - 权限不足`);
+            
+            console.log(result.error);
         }
     }
     

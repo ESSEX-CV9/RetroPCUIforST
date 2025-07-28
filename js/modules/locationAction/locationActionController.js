@@ -249,18 +249,22 @@ class LocationActionController {
     }
     
     /**
-     * 返回地图
+     * 返回地图（暂时离开模式）
      */
     returnToMap() {
-        console.log('返回地图界面');
+        console.log('暂时离开地点，返回地图界面');
         
         // 播放音效
         if (this.audio) {
             this.audio.play('crt-button');
         }
         
-        // 清除保存的状态
-        this.clearLocationActionState();
+        // 保存当前状态（不清除），方便快速返回
+        const currentLocation = this.model.getCurrentLocation();
+        if (currentLocation) {
+            this.saveLocationActionState(currentLocation);
+            console.log('地点行动状态已保存，可通过F6快速返回');
+        }
         
         // 更新模型状态
         this.model.setVisibility(false);
@@ -275,18 +279,22 @@ class LocationActionController {
     }
     
     /**
-     * 返回终端
+     * 返回终端（暂时离开模式）
      */
     returnToTerminal() {
-        console.log('返回终端界面');
+        console.log('暂时离开地点，返回终端界面');
         
         // 播放音效
         if (this.audio) {
             this.audio.play('crt-button');
         }
         
-        // 清除保存的状态
-        this.clearLocationActionState();
+        // 保存当前状态（不清除），方便快速返回
+        const currentLocation = this.model.getCurrentLocation();
+        if (currentLocation) {
+            this.saveLocationActionState(currentLocation);
+            console.log('地点行动状态已保存，可通过F6快速返回');
+        }
         
         // 更新模型状态
         this.model.setVisibility(false);
@@ -295,6 +303,40 @@ class LocationActionController {
         if (this.interfaceService) {
             this.interfaceService.switchTo('terminal');
         }
+    }
+    
+    /**
+     * 完全离开地点（清除所有状态）
+     * 注意：这会完全清除地点行动状态，用户需要重新在地图中选择地点
+     */
+    leaveLocationCompletely() {
+        console.log('完全离开地点，清除所有状态');
+        
+        // 播放音效
+        if (this.audio) {
+            this.audio.play('crt-button');
+        }
+        
+        // 清除地点行动状态
+        this.clearLocationActionState();
+        
+        // 可选：也可以清除地图当前位置（如果需要重置地图状态）
+        // const mapService = this.serviceLocator?.get('map');
+        // if (mapService && typeof mapService.clearCurrentLocation === 'function') {
+        //     mapService.clearCurrentLocation();
+        // }
+        
+        // 更新模型状态
+        this.model.setVisibility(false);
+        
+        // 返回地图界面
+        if (this.interfaceService) {
+            this.interfaceService.switchTo('map');
+        } else {
+            this.view.setVisibility(false);
+        }
+        
+        console.log('已完全离开地点，F6按钮将显示"选择地点"');
     }
     
     /**

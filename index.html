@@ -349,8 +349,9 @@
 1. 终端
 2. 地图系统
 3. 档案系统
+4. 行动地点
 
-你可以通过在终端输入msg <角色> 来与角色对话，
+你可以通过在终端输入msg指令来与角色对话，
 
 欢迎提出任何建议，或者你希望添加什么功能，都可以在帖子底下来告诉我。
 
@@ -408,9 +409,9 @@
         // 图片资源路径配置
         imagePaths: {
             // 地点图片目录
-            locationsDir: 'http://localhost:3000/assets/images/locations/',
+            locationsDir: 'http://localhost:5500/assets/images/locations/',
             // 默认占位图片
-            placeholder: 'http://localhost:3000/assets/images/placeholder.jpg',
+            placeholder: 'http://localhost:5500/assets/images/placeholder.jpg',
             // 支持的图片格式（按优先级排序）
             supportedFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif']
         },
@@ -454,9 +455,10 @@
     <script src="js/modules/identity/identityView.js"></script>
     <script src="js/modules/identity/identityController.js"></script>
 
-    <!-- 地图系统模块 -->
+    <!-- 地图系统 -->
     <script src="js/modules/map/mapModel.js"></script>
     <script src="js/modules/map/mapView.js"></script>
+    <script src="js/modules/map/mapService.js"></script>
     <script src="js/modules/map/mapController.js"></script>
 
     <!-- 软盘系统模块 -->

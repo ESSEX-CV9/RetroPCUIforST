@@ -147,7 +147,12 @@ class GameCore {
                 this.registerComponent('mapModel', mapModel);
                 this.registerComponent('mapView', mapView);
                 this.registerComponent('mapController', mapController);
-                
+
+                // 初始化地图服务
+                const mapService = new MapService();
+                serviceLocator.register('map', mapService);
+                this.registerComponent('mapService', mapService);
+
                 // 为向后兼容保留全局引用
                 window.mapController = mapController;
                 

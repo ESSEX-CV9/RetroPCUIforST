@@ -219,9 +219,40 @@ class GameCore {
                 // 尝试恢复界面状态（页面刷新后）
                 setTimeout(async () => {
                     try {
-                        const restored = await locationActionController.tryRestoreState();
-                        if (!restored) {
-                            console.log("未找到需要恢复的地点行动状态");
+                        // 检查当前界面记录并恢复到对应界面
+                        try {
+                            const storage = serviceLocator.get('storage');
+                            const state = storage?.load('currentInterface');
+                            
+                            if (state && state.interface) {
+                                console.log(`恢复界面状态: ${state.interface}`);
+                                
+                                if (state.interface === 'locationAction') {
+                                    // 特殊处理：地点行动界面需要恢复状态数据
+                                    const restored = await locationActionController.tryRestoreState();
+                                    if (!restored) {
+                                        console.log("未找到需要恢复的地点行动状态，切换到终端");
+                                        interfaceService.switchTo('terminal');
+                                    }
+                                } else if (state.interface === 'map' || state.interface === 'identity' || state.interface === 'terminal') {
+                                    // 其他界面直接切换
+                                    interfaceService.switchTo(state.interface);
+                                } else {
+                                    console.log(`未知界面类型: ${state.interface}，默认切换到终端`);
+                                    interfaceService.switchTo('terminal');
+                                }
+                            } else {
+                                console.log("未找到界面状态记录，默认切换到终端");
+                                interfaceService.switchTo('terminal');
+                            }
+                        } catch (e) {
+                            console.error('恢复界面状态失败:', e);
+                            // 发生错误时默认切换到终端
+                            try {
+                                interfaceService.switchTo('terminal');
+                            } catch (fallbackError) {
+                                console.error('切换到终端界面也失败:', fallbackError);
+                            }
                         }
                         
                         // 确保F6按钮文本正确初始化为"行动"

@@ -232,6 +232,19 @@ class InterfaceService {
             
             // 3. 更新当前活动界面记录
             this.activeInterface = interfaceName;
+
+            // 3.1 持久化当前界面到 localStorage，供刷新时恢复
+            try {
+                const storage = window.ServiceLocator.get('storage') || window.StorageUtils;
+                if (storage) {
+                    storage.save('currentInterface', {
+                        interface: interfaceName,
+                        timestamp: Date.now()
+                    });
+                }
+            } catch (error) {
+                console.error('保存当前界面到 localStorage 失败:', error);
+            }
             
             // 4. 显示目标界面元素
             if (targetInterface.element) {
@@ -270,6 +283,14 @@ class InterfaceService {
                         commandInput.focus();
                     }
                 }, 100);
+            }
+            
+            // 6. 确保切换到非地图界面时，地图模型状态正确更新
+            if (interfaceName !== 'map' && window.mapController && window.mapController.model) {
+                // 切换到非地图界面时，确保地图模型可见性为false
+                if (typeof window.mapController.model.setVisibility === 'function') {
+                    window.mapController.model.setVisibility(false);
+                }
             }
         };
         

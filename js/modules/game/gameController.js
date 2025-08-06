@@ -326,7 +326,7 @@ class GameController {
     }
     
     // 开机逻辑
-    powerOn(toggleSlider) {
+    powerOn(toggleSlider = null) {
         // 播放开机音效
         this.audio.play('screenOn');
         
@@ -395,10 +395,12 @@ class GameController {
                 this.view.input.focus();
                 
                 // 更新滑块颜色
-                if (colorToggle.classList.contains('amber')) {
-                    toggleSlider.style.backgroundColor = '#ffb000';
-                } else {
-                    toggleSlider.style.backgroundColor = '#33ff33';
+                if (toggleSlider) {
+                    if (colorToggle.classList.contains('amber')) {
+                        toggleSlider.style.backgroundColor = '#ffb000';
+                    } else {
+                        toggleSlider.style.backgroundColor = '#33ff33';
+                    }
                 }
                 
                 // 保存设置
@@ -435,7 +437,7 @@ class GameController {
     }
     
     // 关机逻辑
-    powerOff(toggleSlider) {
+    powerOff(toggleSlider = null) {
         // 播放关机音效
         this.audio.play('screenOff');
 
@@ -464,7 +466,9 @@ class GameController {
         this.domUtils.addClass('.prompt', 'hidden');
         
         // 更新颜色切换按钮状态 - 将滑块颜色改为灰色
-        toggleSlider.style.backgroundColor = '#666';
+        if (toggleSlider) {
+            toggleSlider.style.backgroundColor = '#666';
+        }
         
         // 发布系统电源状态事件 - 关机
         this.eventBus.emit('systemPowerChange', false);
@@ -493,7 +497,7 @@ class GameController {
         return true;
     }
     
-    processInput() {
+    async processInput() {
         const command = this.view.input.value.trim();
         this.view.input.value = '';
         
@@ -511,7 +515,7 @@ class GameController {
         
         if (commandService) {
             // 使用命令服务执行命令
-            const result = commandService.executeCommand(command, {
+            const result = await commandService.executeCommand(command, {
                 controller: this,
                 model: this.model,
                 view: this.view

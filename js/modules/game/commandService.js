@@ -72,6 +72,13 @@ class CommandService {
             examples: ['status']
         });
         
+        this.registerCommand('exit', this.handleExitCommand.bind(this), {
+            category: 'system',
+            description: '退出终端系统',
+            usage: 'exit',
+            examples: ['exit']
+        });
+        
         // 搜索和连接命令
         this.registerCommand('search', this.handleSearchCommand.bind(this), {
             category: 'database',
@@ -135,6 +142,18 @@ class CommandService {
         return {
             success: true,
             message: gameModel.getStatus()
+        };
+    }
+
+    handleExitCommand(args, context) {
+        // 发布退出终端事件，由页面管理器处理
+        if (this.eventBus) {
+            this.eventBus.emit('exitTerminal');
+        }
+        
+        return {
+            success: true,
+            message: "正在退出终端系统..."
         };
     }
 
@@ -369,7 +388,7 @@ class CommandService {
      * @param {Object} context - 命令执行上下文
      * @returns {Object} 执行结果
      */
-    executeCommand(commandInput, context = {}) {
+    async executeCommand(commandInput, context = {}) {
         const input = commandInput.trim();
         if (!input) {
             return { success: false, message: "没有输入命令" };
@@ -410,7 +429,7 @@ class CommandService {
         
         // 执行命令
         try {
-            const result = handler(args, {
+            const result = await handler(args, {
                 ...context,
                 fullCommand: input,
                 commandName: resolvedName,

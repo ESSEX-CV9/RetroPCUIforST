@@ -46,7 +46,7 @@ class GameCore {
             return this.initPromise;
         }
 
-        this.initPromise = new Promise((resolve) => {
+        this.initPromise = new Promise(async (resolve) => {
             try {
                 console.log("初始化游戏核心...");
 
@@ -63,7 +63,16 @@ class GameCore {
                 // 3. 注册核心服务
                 serviceLocator.register('eventBus', EventBus);
                 
-                // 4. 初始化系统服务
+                // 4. 初始化数据管理服务（在其他服务之前）
+                console.log("初始化数据管理服务...");
+                const dataService = new DataService(serviceLocator);
+                serviceLocator.register('data', dataService);
+                this.registerComponent('dataService', dataService);
+                
+                // 数据服务初始化（异步）
+                await dataService.initialize();
+                
+                // 5. 初始化系统服务
                 const systemService = new SystemService();
                 serviceLocator.register('system', systemService);
                 this.registerComponent('systemService', systemService);
@@ -73,7 +82,7 @@ class GameCore {
                 serviceLocator.register('command', commandService);
                 this.registerComponent('commandService', commandService);
 
-                // 5. 初始化音频服务 - 修改部分开始
+                // 6. 初始化音频服务 - 修改部分开始
                 const audioService = new AudioService();
                 serviceLocator.register('audio', audioService);
                 this.registerComponent('audioService', audioService);
@@ -90,12 +99,12 @@ class GameCore {
                     });
                 }
 
-                // 6. 初始化接口服务
+                // 7. 初始化接口服务
                 const interfaceService = new InterfaceService();
                 serviceLocator.register('interface', interfaceService);
                 this.registerComponent('interfaceService', interfaceService);
 
-                // 7. 初始化MVC组件
+                // 8. 初始化MVC组件
                 const gameModel = new GameModel();
                 const gameView = new GameView();
                 const gameController = new GameController(gameModel, gameView);
@@ -113,7 +122,7 @@ class GameCore {
                 // 为向后兼容保留全局引用
                 window.gameController = gameController;
 
-                // 8. 初始化Lorebook系统
+                // 9. 初始化Lorebook系统
                 console.log("初始化世界书系统...");
                 const lorebookModel = new LorebookModel(serviceLocator);
                 const lorebookController = new LorebookController(lorebookModel, serviceLocator);
@@ -134,12 +143,12 @@ class GameCore {
                     console.error("世界书控制器初始化失败:", error);
                 });
 
-                // 9. 初始化NPC聊天服务
+                // 10. 初始化NPC聊天服务
                 const npcChatService = new NpcChatService();
                 serviceLocator.register('npcChat', npcChatService);
                 this.registerComponent('npcChatService', npcChatService);
                 
-                // 10. 初始化地图MVC
+                // 11. 初始化地图MVC
                 const mapModel = new MapModel(serviceLocator);
                 const mapView = new MapView(serviceLocator);
                 const mapController = new MapController(mapModel, mapView, serviceLocator);
@@ -159,7 +168,7 @@ class GameCore {
                 // 注册到界面服务
                 interfaceService.registerController('map', mapController);
 
-                // 11. 初始化身份MVC
+                // 12. 初始化身份MVC
                 console.log("初始化身份系统...");
                 const identityModel = new IdentityModel(serviceLocator);
                 const identityView = new IdentityView(serviceLocator);
@@ -189,7 +198,7 @@ class GameCore {
                 // 注册到界面服务
                 interfaceService.registerController('identity', identityController);
 
-                // 12. 初始化地点行动MVC
+                // 13. 初始化地点行动MVC
                 console.log("初始化地点行动系统...");
                 const locationActionModel = new LocationActionModel(serviceLocator);
                 const locationActionView = new LocationActionView(serviceLocator);
@@ -269,6 +278,16 @@ class GameCore {
                 if (eventBus) {
                     eventBus.emit('gameCoreInitialized', this);
                 }
+                
+                // 等待一下确保命令服务的内置命令已初始化，然后注册数据管理器测试命令
+                setTimeout(() => {
+                    if (window.DataTestCommand) {
+                        const dataTestCommand = new DataTestCommand(serviceLocator);
+                        dataTestCommand.registerCommands();
+                        this.registerComponent('dataTestCommand', dataTestCommand);
+                        console.log("数据管理器测试命令已初始化");
+                    }
+                }, 100);
                 
                 resolve(this);
             } catch (error) {

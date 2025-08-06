@@ -5,7 +5,15 @@ function initializeGame() {
     try {
         console.log("初始化游戏...");
         
-        // 1. 初始化游戏核心
+        // 0. 首先初始化页面管理器
+        if (window.PageManager) {
+            console.log("初始化页面管理器...");
+            window.PageManager.initialize();
+            console.log("页面管理器初始化完成，游戏将从HOME页面开始");
+            return; // 页面管理器已接管初始化流程
+        }
+        
+        // 1. 初始化游戏核心（仅在直接访问终端模式时）
         window.GameCore.initialize().then(() => {
             // 2. 获取服务和组件
             const gameController = window.GameCore.getComponent('gameController');
@@ -68,9 +76,88 @@ function initializeGame() {
     }
 }
 
+// 新增：直接初始化游戏核心的函数（用于页面管理器调用）
+function initializeGameCore() {
+    return new Promise((resolve, reject) => {
+        try {
+            console.log("初始化游戏核心...");
+            
+            // 1. 初始化游戏核心
+            window.GameCore.initialize().then(() => {
+                // 2. 获取服务和组件
+                const gameController = window.GameCore.getComponent('gameController');
+                const interfaceService = window.ServiceLocator.get('interface');
+                
+                // 3. 创建软盘控制器
+                const systemStateProvider = window.ServiceLocator.get('system') || new SystemStateProvider(gameController.model);
+                const floppyController = new FloppyController(systemStateProvider);
+                
+                // 4. 将软盘控制器引用附加到游戏控制器
+                gameController.floppyController = floppyController;
+                
+                // 5. 初始化地图MVC
+                const mapController = window.GameCore.getComponent('mapController');
+
+                // 6. 初始化身份MVC
+                const identityController = window.GameCore.getComponent('identityController');
+
+                // 8. 注册控制器到界面服务
+                if (interfaceService) {
+                    interfaceService.registerController('terminal', gameController);
+                    interfaceService.registerController('map', mapController);
+                    interfaceService.registerController('identity', identityController);
+                }
+                
+                // 9. 订阅系统电源变化事件
+                EventBus.on('systemPowerChange', (isOn) => {
+                    floppyController.handleSystemPowerChange(isOn);
+                    
+                    // 每次电源状态变化时保存设置
+                    gameController.saveSettings();
+                    
+                    // 如果系统关闭，确保地图也隐藏
+                    if (!isOn && mapController.model.isVisible) {
+                        mapController.model.setVisibility(false);
+                        mapController.view.hide();
+                    }
+                });
+
+                // 10. 添加颜色切换事件监听
+                EventBus.on('colorModeChanged', (isAmber) => {
+                    if (mapController) {
+                        mapController.view.updateColorMode(isAmber);
+                    }
+                    if (identityController) {
+                        identityController.updateColorMode(isAmber);
+                    }
+                });
+
+                // 11. 初始化世界书系统
+                if (typeof initializeLorebookSystem === 'function') {
+                    initializeLorebookSystem();
+                }
+                
+                console.log("游戏核心初始化完成");
+                resolve();
+            });
+        } catch (error) {
+            console.error("游戏核心初始化失败:", error);
+            reject(error);
+        }
+    });
+}
+
+// 暴露给页面管理器使用
+window.initializeGameCore = initializeGameCore;
+
 // 确保所有依赖文件已加载后再初始化游戏
 window.onload = function() {
     // 检查必要组件是否存在
+    if (!window.PageManager) {
+        console.error("PageManager 未加载。请确保 pageManager.js 文件已正确引入。");
+        return;
+    }
+    
     if (!window.GameCore) {
         console.error("GameCore 未加载。请确保 gameCore.js 文件已正确引入。");
         return;

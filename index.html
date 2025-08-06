@@ -38,6 +38,8 @@
     <link rel="stylesheet" href="css/identity.css">
     <!-- locationAction.css: 地点行动界面样式 -->
     <link rel="stylesheet" href="css/locationAction.css">
+    <!-- pageManager.css: 页面管理器样式 -->
+    <link rel="stylesheet" href="css/pageManager.css">
 </head>
 <body>
     <div class="computer-wrapper">
@@ -434,15 +436,21 @@
     <script src="js/utils/storageUtils.js"></script>
     <script src="js/eventBus.js"></script>
     <script src="js/core/serviceLocator.js"></script>
+    <script src="js/core/pageManager.js"></script>
     <script src="js/core/gameCore.js"></script>
+
+    <!-- 数据管理模块 -->
+    <script src="js/modules/data/dataStorageAdapter.js"></script>
+    <script src="js/modules/data/playerDataManager.js"></script>
+    <script src="js/modules/data/worldDataManager.js"></script>
+    <script src="js/modules/data/gameStateManager.js"></script>
+    <script src="js/modules/data/dataService.js"></script>
+    <script src="js/modules/data/dataTestCommand.js"></script>
 
     <!-- 游戏核心模块 -->
     <script src="js/modules/game/systemService.js"></script>
     <script src="js/modules/game/commandService.js"></script>
     <script src="js/modules/game/interfaceService.js"></script>
-
-    <!-- 基础工具类 -->
-    <script src="js/eventBus.js"></script>
 
     <!-- 游戏核心模块 - 模型、视图、控制器 -->
     <script src="js/modules/game/gameModel.js"></script>

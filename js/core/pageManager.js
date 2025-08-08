@@ -56,8 +56,7 @@ class PageManager {
     createPageContainer() {
         const body = document.body;
         
-        // 创建主页面容器，包装现有内容
-        const existingContent = body.innerHTML;
+        // 清空body内容（现在body只包含一个简单容器）
         body.innerHTML = '';
         
         // 创建页面管理器容器
@@ -72,15 +71,6 @@ class PageManager {
         
         pageManagerContainer.appendChild(pagesContainer);
         body.appendChild(pageManagerContainer);
-        
-        // 将原有内容移动到终端页面
-        const terminalPage = document.createElement('div');
-        terminalPage.id = 'terminalPage';
-        terminalPage.className = 'page terminal-page';
-        terminalPage.style.display = 'none';
-        terminalPage.innerHTML = existingContent;
-        
-        pagesContainer.appendChild(terminalPage);
     }
 
     /**
@@ -122,7 +112,7 @@ class PageManager {
         // 终端页面（复古电脑界面）
         this.registerPage('terminal', {
             title: '复古终端系统',
-            element: document.getElementById('terminalPage'),
+            template: this.getTerminalPageTemplate(),
             onShow: () => this.initTerminalPage(),
             onHide: () => this.cleanupTerminalPage()
         });
@@ -147,9 +137,16 @@ class PageManager {
             this.addToHistory(this.currentPage);
         }
 
-        // 隐藏当前页面
+        // 处理覆盖模式
+        if (options.overlay) {
+            this.showPageAsOverlay(pageName, options);
+        } else {
+            // 正常模式：隐藏当前页面
         if (this.currentPage) {
             this.hidePage(this.currentPage);
+            }
+            // 清理任何可能的背景模糊效果
+            this.clearBackgroundBlur();
         }
 
         // 创建页面元素（如果不存在）
@@ -172,6 +169,32 @@ class PageManager {
     }
 
     /**
+     * 以覆盖模式显示页面
+     * @param {string} pageName - 页面名称
+     * @param {object} options - 选项
+     */
+    showPageAsOverlay(pageName, options) {
+        // 给所有已激活的页面（除了即将覆盖的页面）添加模糊效果
+        Object.entries(this.pages).forEach(([name, pg]) => {
+            if (name !== pageName && pg.element && pg.element.classList.contains('active')) {
+                pg.element.classList.add('blurred-background');
+            }
+        });
+    }
+
+    /**
+     * 清理背景模糊效果
+     */
+    clearBackgroundBlur() {
+        // 移除所有页面的模糊效果
+        Object.values(this.pages).forEach(page => {
+            if (page.element) {
+                page.element.classList.remove('blurred-background');
+            }
+        });
+    }
+
+    /**
      * 隐藏指定页面
      * @param {string} pageName - 页面名称
      */
@@ -185,10 +208,11 @@ class PageManager {
         }
 
         // 隐藏元素
-        // 先清除可能遗留的行内 display，再设置为 none，确保优先级正确
         page.element.style.removeProperty('display');
         page.element.style.display = 'none';
         page.element.classList.remove('active');
+        page.element.classList.remove('overlay-mode');
+        page.element.classList.remove('blurred-background');
     }
 
     /**
@@ -197,10 +221,17 @@ class PageManager {
      * @param {object} options - 显示选项
      */
     displayPage(page, options = {}) {
-        const { transition = 'fadeIn', duration = 300 } = options;
+        const { transition = 'fadeIn', duration = 300, overlay = false } = options;
 
         // 显示元素
         page.element.style.display = 'block';
+        
+        // 如果是覆盖模式，添加覆盖样式
+        if (overlay) {
+            page.element.classList.add('overlay-mode');
+        } else {
+            page.element.classList.remove('overlay-mode');
+        }
         
         // 添加过渡动画
         if (transition && this.transitions[transition]) {
@@ -323,6 +354,288 @@ class PageManager {
     }
 
     /**
+     * 获取终端页面模板
+     */
+    getTerminalPageTemplate() {
+        return `
+            <div class="computer-wrapper">
+                <div class="computer-case">
+                    <div class="screen-container">
+                        <!-- 主终端区域 -->
+                        <div class="main-terminal-area">
+                            <div class="screen">
+                                <!-- 终端界面 -->
+                                <div class="terminal" id="terminal">
+                                    <div class="output" id="output"></div>
+                                    <div class="prompt">
+                                        <span class="prompt-symbol">></span>
+                                        <input type="text" id="commandInput" spellcheck="false" autocomplete="off">
+                                        <span class="cursor" id="cursor"></span>
+                                    </div>
+                    </div>
+                    
+                                <!-- 地图界面 -->
+                                <div class="map-interface" id="mapInterface" style="display: none;">
+                                    <div class="map-header">
+                                        <div class="map-title">地理信息系统 v1.0</div>
+                                        <div class="map-status">加密连接: 已启用</div>
+                                    </div>
+                                    <div class="map-content" id="mapContent">
+                                        <!-- 地图内容将在JavaScript中动态生成 -->
+                                    </div>
+                                    <div class="map-footer">
+                                        <div class="map-current-location">当前位置: <span id="mapCurrentLocation">未知</span></div>
+                                        <div class="map-info">按 F1 返回终端</div>
+                                    </div>
+                        </div>
+                        
+                                <!-- 档案界面 -->
+                                <div class="status-interface" id="statusInterface" style="display: none;">
+                                    <div class="status-header"></div>
+                                    <div class="status-content">
+                                        </div>
+                                    <div class="status-footer"></div>
+                        </div>
+                        
+                                <!-- 地点行动界面 -->
+                                <div class="location-action-interface" id="locationActionInterface" style="display: none;">
+                                    <div class="location-action-container">
+                                        <!-- 上半部分：地点图片 -->
+                                        <div class="location-action-scene">
+                                            <div class="tui-frame scene-frame">
+                                                <div class="tui-title">地点视觉</div>
+                                                <div class="scene-image-container">
+                                                    <img id="locationSceneImage" class="scene-image" alt="地点场景" />
+                                                    <div class="scene-info-overlay">
+                                                        <div class="scene-location-name" id="sceneLocationName">地点名称</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                        </div>
+                        
+                                        <!-- 下半部分：故事文字 -->
+                                        <div class="location-action-story">
+                                            <div class="tui-frame story-frame">
+                                                <div class="tui-title">行动报告</div>
+                                                <div class="story-content" id="locationStoryContent">
+                                                    <p>正在加载地点信息...</p>
+                                                </div>
+                        </div>
+                    </div>
+                </div>
+                
+                                    <!-- 底部提示栏 -->
+                                    <div class="location-action-footer">
+                                        <div class="tui-hint-bar">
+                                            ESC: 返回地图 | F1: 返回终端
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 功能按钮区域 - 两列，每列4个 -->
+                        <div class="buttons-panel">
+                            <div class="buttons-column">
+                                <div id="fnButton1" class="function-button">终端</div>
+                                <div id="fnButton2" class="function-button">F2</div>
+                                <div id="fnButton3" class="function-button">F3</div>
+                                <div id="fnButton4" class="function-button">F4</div>
+                            </div>
+                            <div class="buttons-column">
+                                <div id="fnButton5" class="function-button">地图</div>
+                                <div id="fnButton6" class="function-button">F6</div>
+                                <div id="fnButton7" class="function-button">F7</div>
+                                <div id="fnButton8" class="function-button">F8</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="control-panel">
+                        <div class="power-button" id="powerButton">POWER</div>
+                        <div class="color-toggle-container">
+                            <div class="color-toggle" id="colorToggle">
+                                <div class="toggle-slider"></div>
+                            </div>
+                            <div class="color-toggle-label">COLOR</div>
+                        </div>
+                        <div class="status-lights">
+                            <div class="status-light" id="diskLight"></div>
+                            <div class="status-light" id="networkLight"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 软盘驱动器区域 -->
+                <div class="floppy-drives-container">
+                    <!-- A: 驱动器 (永久插入) -->
+                    <div class="drive-container">
+                        <div class="floppy-drive drive-a">
+                            <!-- 软盘插入口 -->
+                            <div class="floppy-slot disk-inserted">
+                                <!-- 软盘边缘 -->
+                                <div class="floppy-disk">
+                                    <svg viewBox="0 0 170 5" xmlns="http://www.w3.org/2000/svg">
+                                        <!-- 软盘外壳主体 -->
+                                        <rect x="0" y="0" width="170" height="5" fill="#222" stroke="#333" stroke-width="0.2"/>
+                                        
+                                        <!-- 中央读写窗口 -->
+                                        <rect x="35" y="1" width="100" height="3" fill="#111" stroke="none"/>
+                                        
+                                        <!-- 左右导向边缘 -->
+                                        <rect x="5" y="1" width="25" height="3" fill="#2a2a2a" stroke="none"/>
+                                        <rect x="140" y="1" width="25" height="3" fill="#2a2a2a" stroke="none"/>
+                                        
+                                        <!-- 中央金属滑片 -->
+                                        <rect x="70" y="1.5" width="30" height="2" fill="#444" stroke="none"/>
+                                        
+                                        <!-- 左侧标记 -->
+                                        <circle cx="20" cy="2.5" r="1" fill="#333" stroke="none"/>
+                                        
+                                        <!-- 高光效果 -->
+                                        <rect x="0" y="0" width="170" height="2.5" fill="url(#floppyGradientA)" opacity="0.15"/>
+                                        
+                                        <!-- 渐变定义 -->
+                                        <defs>
+                                            <linearGradient id="floppyGradientA" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                <stop offset="0%" stop-color="#fff" stop-opacity="0.3"/>
+                                                <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+                                            </linearGradient>
+                                        </defs>
+                                    </svg>
+                                </div>
+                                
+                                <!-- 插入指示三角形 -->
+                                <div class="insert-indicator"></div>
+                                
+                                <!-- 插入口SVG细节 -->
+                                <svg class="slot-detail" viewBox="0 0 180 10" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="0" y="0" width="180" height="10" fill="none" stroke="#444" stroke-width="0.5" rx="1" />
+                                    <line x1="0" y1="1" x2="180" y2="1" stroke="#111" stroke-width="0.5" />
+                                    <line x1="0" y1="9" x2="180" y2="9" stroke="#333" stroke-width="0.5" />
+                                </svg>
+                            </div>
+                            
+                            <!-- 弹出按钮 -->
+                            <div class="eject-button disabled">
+                                <div class="eject-arrow"></div>
+                            </div>
+                            
+                            <!-- 驱动器指示灯 -->
+                            <div class="drive-light active"></div>
+                            
+                            <!-- 驱动器标签 -->
+                            <div class="drive-label">A:</div>
+                            
+                            <!-- 驱动器前面板纹理 -->
+                            <div class="drive-texture"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- B: 驱动器 (可交互) -->
+                    <div class="drive-container">
+                        <div class="floppy-drive drive-b">
+                            <!-- 软盘插入口 -->
+                            <div class="floppy-slot" id="floppySlotB">
+                                <!-- 软盘边缘 -->
+                                <div class="floppy-disk" id="floppyDiskB">
+                                    <svg viewBox="0 0 170 5" xmlns="http://www.w3.org/2000/svg">
+                                        <!-- 软盘外壳主体 -->
+                                        <rect x="0" y="0" width="170" height="5" fill="#222" stroke="#333" stroke-width="0.2"/>
+                                        
+                                        <!-- 中央读写窗口 -->
+                                        <rect x="35" y="1" width="100" height="3" fill="#111" stroke="none"/>
+                                        
+                                        <!-- 左右导向边缘 -->
+                                        <rect x="5" y="1" width="25" height="3" fill="#2a2a2a" stroke="none"/>
+                                        <rect x="140" y="1" width="25" height="3" fill="#2a2a2a" stroke="none"/>
+                                        
+                                        <!-- 中央金属滑片 -->
+                                        <rect x="70" y="1.5" width="30" height="2" fill="#444" stroke="none"/>
+                                        
+                                        <!-- 左侧标记 -->
+                                        <circle cx="20" cy="2.5" r="1" fill="#333" stroke="none"/>
+                                        
+                                        <!-- 高光效果 -->
+                                        <rect x="0" y="0" width="170" height="2.5" fill="url(#floppyGradientB)" opacity="0.15"/>
+                                        
+                                        <!-- 渐变定义 -->
+                                        <defs>
+                                            <linearGradient id="floppyGradientB" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                <stop offset="0%" stop-color="#fff" stop-opacity="0.3"/>
+                                                <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+                                            </linearGradient>
+                                        </defs>
+                                    </svg>
+                                </div>
+                                
+                                <!-- 插入指示三角形 -->
+                                <div class="insert-indicator"></div>
+                                
+                                <!-- 插入口SVG细节 -->
+                                <svg class="slot-detail" viewBox="0 0 180 10" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="0" y="0" width="180" height="10" fill="none" stroke="#444" stroke-width="0.5" rx="1" />
+                                    <line x1="0" y1="1" x2="180" y2="1" stroke="#111" stroke-width="0.5" />
+                                    <line x1="0" y1="9" x2="180" y2="9" stroke="#333" stroke-width="0.5" />
+                                </svg>
+                            </div>
+                            
+                            <!-- 弹出按钮 -->
+                            <div class="eject-button disabled" id="ejectButtonB">
+                                <div class="eject-arrow"></div>
+                            </div>
+                            
+                            <!-- 驱动器指示灯 -->
+                            <div class="drive-light" id="driveLightB"></div>
+                            
+                            <!-- 驱动器标签 -->
+                            <div class="drive-label">B:</div>
+                            
+                            <!-- 驱动器前面板纹理 -->
+                            <div class="drive-texture"></div>
+                        </div>
+                    
+                        <!-- 完整的软盘 SVG - 只显示上半部分 -->
+                        <div class="full-floppy init-hidden" id="fullFloppyB">
+                            <svg viewBox="0 0 180 140" xmlns="http://www.w3.org/2000/svg">
+                                <!-- 软盘主体 -->
+                                <rect x="10" y="10" width="160" height="120" rx="3" fill="#222" stroke="#444" stroke-width="1"/>
+                                
+                                <!-- 软盘标签区域 -->
+                                <rect x="20" y="15" width="140" height="30" fill="#1a1a1a" stroke="#333" stroke-width="0.5"/>
+                                
+                                <!-- 标签文字 -->
+                                <text x="90" y="35" font-family="monospace" font-size="14" font-weight="bold" fill="#0071c5" text-anchor="middle">新消息</text>
+                                
+                                <!-- 读写窗口 -->
+                                <rect x="20" y="55" width="140" height="15" fill="#111" stroke="#333" stroke-width="0.5"/>
+                                
+                                <!-- 中心金属部分 -->
+                                <circle cx="90" cy="95" r="10" fill="#333" stroke="#444" stroke-width="0.5"/>
+                                <circle cx="90" cy="95" r="3" fill="#222" stroke="#333" stroke-width="0.5"/>
+                                
+                                <!-- 防写保护缺口 -->
+                                <rect x="150" y="60" width="10" height="15" fill="#111" stroke="#333" stroke-width="0.5"/>
+                                
+                                <!-- 边缘高光 -->
+                                <rect x="10" y="10" width="160" height="60" fill="url(#fullDiskGradient)" opacity="0.1"/>
+                                
+                                <!-- 渐变定义 -->
+                                <defs>
+                                    <linearGradient id="fullDiskGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#fff" stop-opacity="0.5"/>
+                                        <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
      * 获取游戏选择页面模板
      */
     getGameSelectPageTemplate() {
@@ -356,7 +669,7 @@ class PageManager {
         
         if (startGameBtn) {
             startGameBtn.addEventListener('click', () => {
-                this.showPage('gameSelect', { transition: 'slideLeft' });
+                this.showPage('gameSelect', { transition: 'fadeIn', duration: 200 });
             });
         }
         
@@ -410,12 +723,12 @@ class PageManager {
         
         this.canvasRenderer.onLoadComplete = () => {
             console.log('Canvas桌面加载完成');
-            // 隐藏加载遮罩
-            setTimeout(() => {
-                const loading = document.getElementById('desktopLoading');
-                if (loading) {
-                    loading.classList.add('hidden');
-                }
+        // 隐藏加载遮罩
+        setTimeout(() => {
+            const loading = document.getElementById('desktopLoading');
+            if (loading) {
+                loading.classList.add('hidden');
+            }
             }, 500);
         };
     }
@@ -477,6 +790,11 @@ class PageManager {
      */
     async enterMapMode() {
         try {
+            // 以覆盖模式显示终端页面，保持游戏选择页面在背景
+            this.showPage('terminal', { transition: 'scaleIn', overlay: true });
+            
+            // 等待DOM渲染完成后再初始化游戏核心和地图
+            setTimeout(async () => {
             // 确保游戏核心已初始化
             if (window.initializeGameCore) {
                 if (window.GameCore && !window.GameCore.initialized) {
@@ -485,10 +803,7 @@ class PageManager {
                 }
             }
             
-            // 切换到终端页面
-            this.showPage('terminal', { transition: 'scaleIn' });
-            
-            // 等待终端初始化完成后打开地图
+                // 再等待一下确保游戏核心完全初始化
             setTimeout(() => {
                 if (window.gameController && window.gameController.model.isOn) {
                     // 触发地图程序运行
@@ -496,7 +811,9 @@ class PageManager {
                         window.EventBus.emit('runProgram', { program: 'map' });
                     }
                 }
-            }, 1500);
+                }, 1000);
+            }, 100); // 给DOM一些时间来渲染
+            
         } catch (error) {
             console.error('进入地图模式失败:', error);
             alert('进入地图模式失败，请查看控制台了解详情');
@@ -510,7 +827,11 @@ class PageManager {
         console.log('进入终端模式...');
         
         try {
-            // 确保游戏核心已初始化
+            // 以覆盖模式显示终端页面，保持游戏选择页面在背景
+            this.showPage('terminal', { transition: 'scaleIn', overlay: true });
+            
+            // 等待DOM渲染完成后再初始化游戏核心
+            setTimeout(async () => {
             if (window.initializeGameCore) {
                 if (window.GameCore && !window.GameCore.initialized) {
                     console.log('初始化游戏核心...');
@@ -518,11 +839,9 @@ class PageManager {
                 }
             } else {
                 console.error('initializeGameCore函数不可用');
-                return;
             }
+            }, 100); // 给DOM一些时间来渲染
             
-            // 切换到终端页面
-            this.showPage('terminal', { transition: 'scaleIn' });
         } catch (error) {
             console.error('进入终端模式失败:', error);
             alert('进入终端模式失败，请查看控制台了解详情');
@@ -540,6 +859,9 @@ class PageManager {
         
         // 绑定退出事件
         this.bindTerminalExitEvents();
+        
+        // 添加点击外部区域退出功能
+        this.addClickOutsideExit();
         
         // 确保游戏系统开机
         setTimeout(() => {
@@ -564,6 +886,9 @@ class PageManager {
         if (exitButton) {
             exitButton.remove();
         }
+        
+        // 移除点击外部区域退出功能
+        this.removeClickOutsideExit();
     }
 
     /**
@@ -643,7 +968,7 @@ class PageManager {
                     console.log('系统关机，退出终端');
                     // 延迟一下让关机动画播放完再退出
                     setTimeout(() => {
-                        this.showPage('gameSelect', { transition: 'scaleOut' });
+                        this.showPage('gameSelect', { transition: 'fadeIn' });
                     }, 500);
                 }
             });
@@ -676,7 +1001,7 @@ class PageManager {
         if (directExit) {
             // 直接退出，不关机
             console.log('直接退出终端，保持系统运行状态');
-            this.showPage('gameSelect', { transition: 'scaleOut' });
+            this.showPage('gameSelect', { transition: 'fadeIn' });
             return;
         }
 
@@ -688,7 +1013,7 @@ class PageManager {
             } catch (error) {
                 console.error('关机时出错:', error);
                 // 即使关机出错也要退出
-                this.showPage('gameSelect', { transition: 'scaleOut' });
+                this.showPage('gameSelect', { transition: 'fadeIn' });
                 return;
             }
         }
@@ -696,8 +1021,50 @@ class PageManager {
         // 延迟一下再切换页面，让关机动画播放完
         const delay = skipPowerOff ? 200 : 500;
         setTimeout(() => {
-            this.showPage('gameSelect', { transition: 'scaleOut' });
+            this.showPage('gameSelect', { transition: 'fadeIn' });
         }, delay);
+    }
+
+    /**
+     * 添加点击外部区域退出功能
+     */
+    addClickOutsideExit() {
+        const terminalPage = document.getElementById('terminalPage');
+        if (!terminalPage) {
+            console.error('找不到终端页面元素');
+            return;
+        }
+
+        // 移除之前的点击监听器（如果存在）
+        if (this.outsideClickHandler) {
+            terminalPage.removeEventListener('click', this.outsideClickHandler);
+        }
+
+        // 创建点击处理器
+        this.outsideClickHandler = (event) => {
+            // 查找电脑主体元素
+            const computerWrapper = event.target.closest('.computer-wrapper');
+            
+            // 如果点击的不是电脑主体内部，则退出
+            if (!computerWrapper) {
+                console.log('点击外部区域，退出终端');
+                this.exitTerminal(false, true); // 直接退出，不关机
+            }
+        };
+
+        // 添加点击监听器
+        terminalPage.addEventListener('click', this.outsideClickHandler);
+    }
+
+    /**
+     * 移除点击外部区域退出功能
+     */
+    removeClickOutsideExit() {
+        const terminalPage = document.getElementById('terminalPage');
+        if (terminalPage && this.outsideClickHandler) {
+            terminalPage.removeEventListener('click', this.outsideClickHandler);
+            this.outsideClickHandler = null;
+        }
     }
 }
 

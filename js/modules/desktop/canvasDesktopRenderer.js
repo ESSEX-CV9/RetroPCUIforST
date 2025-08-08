@@ -8,8 +8,11 @@ class CanvasDesktopRenderer {
         this.canvas = canvasElement;
         this.ctx = canvasElement.getContext('2d');
         this.images = {};
+        this.videos = {};
         this.loadedImages = 0;
         this.totalImages = 0;
+        this.loadedVideos = 0;
+        this.totalVideos = 0;
         this.isLoaded = false;
         
         // 标准桌面尺寸（基于原始图片尺寸）
@@ -25,18 +28,27 @@ class CanvasDesktopRenderer {
         this.items = {
             computer: {
                 name: 'computer',
-                image: './assets/images/room/Computer.png',
+                image: 'http://localhost:5500/assets/images/room/Computer.png',
                 x: 395,     // 左上角X坐标
                 y: 339,    // 左上角Y坐标
                 width: 904,  // 物品宽度
                 height: 742, // 物品高度
                 action: 'terminal',
                 tooltip: '进入终端系统',
-                enabled: true
+                enabled: true,
+                // 视频配置
+                video: {
+                    src: 'http://localhost:5500/assets/images/room/Screen.MP4',
+                    x: 445,      // 视频在电脑屏幕内的相对位置X (需手动调整)
+                    y: 410,      // 视频在电脑屏幕内的相对位置Y (需手动调整)
+                    width: 350,  // 视频宽度 (需手动调整)
+                    height: 250, // 视频高度 (需手动调整)
+                    rotation: -7  // 旋转角度 (度) (需手动调整)
+                }
             },
             map: {
                 name: 'map',
-                image: './assets/images/room/MAP.png',
+                image: 'http://localhost:5500/assets/images/room/MAP.png',
                 x: 695,
                 y: 0,
                 width: 1522,
@@ -47,7 +59,7 @@ class CanvasDesktopRenderer {
             },
             gun: {
                 name: 'gun',
-                image: './assets/images/room/GUN.png',
+                image: 'http://localhost:5500/assets/images/room/GUN.png',
                 x: 2019,
                 y: 939,
                 width: 502,
@@ -58,7 +70,7 @@ class CanvasDesktopRenderer {
             },
             doc1: {
                 name: 'doc1',
-                image: './assets/images/room/DOC_1.png',
+                image: 'http://localhost:5500/assets/images/room/DOC_1.png',
                 x: 1625,
                 y: 364,
                 width: 820,
@@ -69,7 +81,7 @@ class CanvasDesktopRenderer {
             },
             settings: {
                 name: 'settings',
-                image: './assets/images/room/DOC_2.png',
+                image: 'http://localhost:5500/assets/images/room/DOC_2.png',
                 x: 2241,
                 y: 599,
                 width: 575,
@@ -80,7 +92,7 @@ class CanvasDesktopRenderer {
             },
             chair: {
                 name: 'chair',
-                image: './assets/images/room/Chair.png',
+                image: 'http://localhost:5500/assets/images/room/Chair.png',
                 x: 787,
                 y: 1304,
                 width: 1213,
@@ -99,6 +111,9 @@ class CanvasDesktopRenderer {
         this.onItemClick = null;
         this.onLoadComplete = null;
         
+        // 动画循环ID
+        this.animationId = null;
+        
         // 绑定事件
         this.bindEvents();
         
@@ -107,18 +122,25 @@ class CanvasDesktopRenderer {
     }
     
     /**
-     * 加载所有图片资源
+     * 加载所有图片和视频资源
      */
     async loadImages() {
         const imagesToLoad = [
-            { name: 'background', src: './assets/images/room/Desk_base.png' },
+            { name: 'background', src: 'http://localhost:5500/assets/images/room/Desk_base.png' },
             ...Object.values(this.items).map(item => ({ name: item.name, src: item.image }))
         ];
         
-        this.totalImages = imagesToLoad.length;
-        this.loadedImages = 0;
+        // 收集需要加载的视频
+        const videosToLoad = Object.values(this.items)
+            .filter(item => item.video)
+            .map(item => ({ name: item.name, src: item.video.src }));
         
-        console.log(`开始加载 ${this.totalImages} 张桌面图片...`);
+        this.totalImages = imagesToLoad.length;
+        this.totalVideos = videosToLoad.length;
+        this.loadedImages = 0;
+        this.loadedVideos = 0;
+        
+        console.log(`开始加载 ${this.totalImages} 张桌面图片和 ${this.totalVideos} 个视频...`);
         
         const loadPromises = imagesToLoad.map(imageInfo => {
             return new Promise((resolve, reject) => {
@@ -126,17 +148,9 @@ class CanvasDesktopRenderer {
                 img.onload = () => {
                     this.images[imageInfo.name] = img;
                     this.loadedImages++;
-                    console.log(`已加载: ${imageInfo.src} (${this.loadedImages}/${this.totalImages})`);
+                    console.log(`已加载图片: ${imageInfo.src} (${this.loadedImages}/${this.totalImages})`);
                     
-                    if (this.loadedImages === this.totalImages) {
-                        this.isLoaded = true;
-                        console.log('所有桌面图片加载完成');
-                        this.resize();
-                        this.render();
-                        if (this.onLoadComplete) {
-                            this.onLoadComplete();
-                        }
-                    }
+                    this.checkLoadComplete();
                     resolve();
                 };
                 img.onerror = () => {
@@ -147,10 +161,79 @@ class CanvasDesktopRenderer {
             });
         });
         
+        // 视频加载
+        const videoLoadPromises = videosToLoad.map(videoInfo => {
+            return new Promise((resolve, reject) => {
+                const video = document.createElement('video');
+                video.muted = true;
+                video.loop = true;
+                video.autoplay = true;
+                video.playsInline = true;
+                
+                video.addEventListener('loadeddata', () => {
+                    this.videos[videoInfo.name] = video;
+                    this.loadedVideos++;
+                    console.log(`已加载视频: ${videoInfo.src} (${this.loadedVideos}/${this.totalVideos})`);
+                    
+                    // 开始播放视频
+                    video.play().catch(e => console.warn('视频自动播放失败:', e));
+                    
+                    this.checkLoadComplete();
+                    resolve();
+                });
+                
+                video.addEventListener('error', () => {
+                    console.error(`视频加载失败: ${videoInfo.src}`);
+                    this.loadedVideos++; // 即使失败也要增加计数，避免卡住
+                    this.checkLoadComplete();
+                    reject(new Error(`Failed to load ${videoInfo.src}`));
+                });
+                
+                video.src = videoInfo.src;
+                video.load();
+            });
+        });
+        
         try {
-            await Promise.all(loadPromises);
+            await Promise.all([...loadPromises, ...videoLoadPromises]);
         } catch (error) {
-            console.error('图片加载过程中出现错误:', error);
+            console.error('资源加载过程中出现错误:', error);
+        }
+    }
+    
+    /**
+     * 检查所有资源是否加载完成
+     */
+    checkLoadComplete() {
+        if (this.loadedImages === this.totalImages && this.loadedVideos === this.totalVideos) {
+            this.isLoaded = true;
+            console.log('所有桌面资源加载完成');
+            this.resize();
+            this.startAnimation();
+            if (this.onLoadComplete) {
+                this.onLoadComplete();
+            }
+        }
+    }
+    
+    /**
+     * 开始动画循环（用于视频渲染）
+     */
+    startAnimation() {
+        const animate = () => {
+            this.render();
+            this.animationId = requestAnimationFrame(animate);
+        };
+        animate();
+    }
+    
+    /**
+     * 停止动画循环
+     */
+    stopAnimation() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
         }
     }
     
@@ -217,6 +300,13 @@ class CanvasDesktopRenderer {
         // 渲染所有物品
         Object.values(this.items).forEach(item => {
             if (!this.images[item.name]) return;
+            
+            // 先绘制视频（作为背景层）
+            if (item.video && this.videos[item.name]) {
+                this.drawItemVideo(item);
+            }
+            
+            // 再绘制物品图片（前景层）
             // 为每个物品单独保存/恢复一次上下文，保证状态平衡
             this.ctx.save();
             
@@ -233,6 +323,7 @@ class CanvasDesktopRenderer {
                 this.ctx.filter = filters.join(' ');
             }
             
+            // 绘制物品图片
             this.ctx.drawImage(
                 this.images[item.name],
                 item.x,
@@ -246,6 +337,98 @@ class CanvasDesktopRenderer {
         
         // 恢复上下文状态
         this.ctx.restore();
+    }
+    
+    /**
+     * 绘制物品上的视频
+     * @param {object} item - 物品对象
+     */
+    drawItemVideo(item) {
+        const video = this.videos[item.name];
+        const videoConfig = item.video;
+        
+        this.ctx.save();
+        
+        // 计算视频在画布上的位置（相对于物品的绝对位置）
+        const videoX = videoConfig.x;
+        const videoY = videoConfig.y;
+        
+        // 如果有旋转，先移动到旋转中心
+        if (videoConfig.rotation) {
+            const centerX = videoX + videoConfig.width / 2;
+            const centerY = videoY + videoConfig.height / 2;
+            this.ctx.translate(centerX, centerY);
+            this.ctx.rotate((videoConfig.rotation * Math.PI) / 180);
+            this.ctx.translate(-centerX, -centerY);
+        }
+        
+        // 第一层：绘制辉光效果（背景光晕）
+        this.drawVideoGlow(videoX, videoY, videoConfig.width, videoConfig.height);
+        
+        // 第二层：绘制主视频内容（降低饱和度）
+        this.ctx.filter = 'saturate(0.4) brightness(0.75)'; // 降低饱和度到60%，稍微降低亮度
+        this.ctx.drawImage(
+            video,
+            videoX,
+            videoY,
+            videoConfig.width,
+            videoConfig.height
+        );
+        this.ctx.filter = 'none'; // 重置滤镜
+        
+        // 第三层：前景辉光效果（屏幕反射）
+        this.drawVideoForegroundGlow(videoX, videoY, videoConfig.width, videoConfig.height);
+        
+        this.ctx.restore();
+    }
+    
+    /**
+     * 绘制视频背景辉光效果
+     */
+    drawVideoGlow(x, y, width, height) {
+        const glowSize = 15;
+        const glowColor = 'rgba(100, 150, 255, 0.3)'; // 蓝色辉光
+        
+        // 创建径向渐变
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        const maxRadius = Math.max(width, height) / 2 + glowSize;
+        
+        const gradient = this.ctx.createRadialGradient(
+            centerX, centerY, 0,
+            centerX, centerY, maxRadius
+        );
+        gradient.addColorStop(0, glowColor);
+        gradient.addColorStop(0.7, 'rgba(100, 150, 255, 0.1)');
+        gradient.addColorStop(1, 'rgba(100, 150, 255, 0)');
+        
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(
+            x - glowSize, 
+            y - glowSize, 
+            width + glowSize * 2, 
+            height + glowSize * 2
+        );
+    }
+    
+    /**
+     * 绘制视频前景辉光效果
+     */
+    drawVideoForegroundGlow(x, y, width, height) {
+        // 添加微妙的屏幕反射效果
+        const glowGradient = this.ctx.createLinearGradient(x, y, x, y + height);
+        glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+        glowGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.05)');
+        glowGradient.addColorStop(0.7, 'rgba(255, 255, 255, 0)');
+        glowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+        
+        this.ctx.fillStyle = glowGradient;
+        this.ctx.fillRect(x, y, width, height);
+        
+        // 添加边缘高光
+        this.ctx.strokeStyle = 'rgba(150, 200, 255, 0.4)';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x, y, width, height);
     }
     
     /**
@@ -389,6 +572,9 @@ class CanvasDesktopRenderer {
      * 销毁渲染器，清理资源
      */
     destroy() {
+        // 停止动画循环
+        this.stopAnimation();
+        
         // 移除事件监听器
         window.removeEventListener('resize', this.resize);
         
@@ -397,6 +583,14 @@ class CanvasDesktopRenderer {
             this.tooltip.remove();
             this.tooltip = null;
         }
+        
+        // 清理视频资源
+        Object.values(this.videos).forEach(video => {
+            video.pause();
+            video.src = '';
+            video.load();
+        });
+        this.videos = {};
         
         // 清理图片资源
         this.images = {};

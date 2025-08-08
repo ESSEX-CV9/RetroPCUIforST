@@ -27,9 +27,26 @@
     left: 0;
     overflow: auto;
     display: none;
+    z-index: 1;
 }
 
 .page.active {
+    display: block;
+}
+
+/* 覆盖模式页面样式 */
+.page.overlay-mode {
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+/* 背景模糊效果 */
+.page.blurred-background {
+    filter: blur(5px) brightness(0.6);
+    transition: filter 0.3s ease;
+}
+
+.page.blurred-background.active {
     display: block;
 }
 
@@ -197,9 +214,8 @@
 .canvas-desktop-container {
     position: relative;
     width: 90%;
-    height: 80%;
+    height: 100vh; /* 使用全视口高度 */
     max-width: 2816px;
-    max-height: 1536px;
     overflow: hidden;
     border-radius: 8px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
@@ -303,6 +319,7 @@
 .terminal-page {
     /* 默认隐藏由 .page 控制，保留复古电脑界面内部样式 */
     position: relative;
+    overflow: hidden; /* 禁用滚动条 */
 }
 
 .terminal-page.active {
@@ -310,9 +327,10 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
+    height: 100vh; /* 使用固定视口高度而非最小高度 */
     padding: 2rem;
     box-sizing: border-box;
+    overflow: hidden; /* 确保没有滚动条 */
 }
 
 /* 退出按钮样式 - 继承电源按钮样式 */
@@ -454,7 +472,7 @@
     
     .canvas-desktop-container {
         width: 95%;
-        height: 85%;
+        height: 100vh; /* 移动设备也使用全视口高度 */
     }
     
     /* 移动设备上的物品大小调整 - 保持百分比但稍微增大以便点击
@@ -499,7 +517,7 @@
     
     .canvas-desktop-container {
         width: 98%;
-        height: 90%;
+        height: 100vh; /* 小屏幕设备也使用全视口高度 */
     }
     
     .tooltip {

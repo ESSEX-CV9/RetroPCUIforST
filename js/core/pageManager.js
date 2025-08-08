@@ -323,90 +323,20 @@ class PageManager {
     }
 
     /**
-     * 获取游戏选择页面模板 - POV房间视角
+     * 获取游戏选择页面模板
      */
     getGameSelectPageTemplate() {
         return `
-            <div class="room-pov-container">
-                <!-- 顶部控制栏 -->
-                <div class="room-header">
-                    <button class="back-button">← 返回主页</button>
-                    <div class="room-title">特工安全屋</div>
-                    <div class="room-subtitle">选择你的行动方式</div>
+            <div class="canvas-game-select">
+                <!-- Canvas桌面容器 -->
+                <div class="canvas-desktop-container">
+                    <canvas id="desktopCanvas" class="desktop-canvas"></canvas>
                 </div>
                 
-                <!-- 主要房间视角区域 -->
-                <div class="room-view">
-                    <!-- 桌面背景 -->
-                    <div class="desk-surface">
-                        <!-- 左上区域：老式电脑 -->
-                        <div class="interactive-area computer-area" data-action="terminal">
-                            <div class="area-placeholder computer-placeholder">
-                                <div class="placeholder-frame">
-                                    <div class="placeholder-icon">🖥️</div>
-                                    <div class="placeholder-title">复古终端</div>
-                                    <div class="placeholder-subtitle">访问情报网络</div>
-                                </div>
-                                <!-- 电脑屏幕发光效果 -->
-                                <div class="screen-glow"></div>
-                                <!-- 悬停提示 -->
-                                <div class="hover-tooltip">点击启动终端系统</div>
-                            </div>
-                        </div>
-                        
-                        <!-- 右上区域：文件堆 -->
-                        <div class="interactive-area files-area" data-action="files">
-                            <div class="area-placeholder files-placeholder">
-                                <div class="placeholder-frame">
-                                    <div class="placeholder-icon">📁</div>
-                                    <div class="placeholder-title">机密档案</div>
-                                    <div class="placeholder-subtitle">查阅情报文件</div>
-                                </div>
-                                <!-- 文件堆叠效果 -->
-                                <div class="files-stack">
-                                    <div class="file-layer layer-1"></div>
-                                    <div class="file-layer layer-2"></div>
-                                    <div class="file-layer layer-3"></div>
-                                </div>
-                                <!-- 悬停提示 -->
-                                <div class="hover-tooltip">点击查看档案（开发中）</div>
-                            </div>
-                        </div>
-                        
-                        <!-- 中下区域：外出道具 -->
-                        <div class="interactive-area action-area" data-action="field">
-                            <div class="area-placeholder action-placeholder">
-                                <div class="placeholder-frame">
-                                    <div class="placeholder-icon">🗺️</div>
-                                    <div class="placeholder-title">外勤装备</div>
-                                    <div class="placeholder-subtitle">执行实地任务</div>
-                                </div>
-                                <!-- 道具散布效果 -->
-                                <div class="equipment-items">
-                                    <div class="equipment-item map-item">🗺️</div>
-                                    <div class="equipment-item key-item">🔑</div>
-                                    <div class="equipment-item id-item">🆔</div>
-                                </div>
-                                <!-- 悬停提示 -->
-                                <div class="hover-tooltip">点击开始外勤行动</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 房间环境细节 -->
-                    <div class="room-ambient">
-                        <!-- 桌面边缘阴影 -->
-                        <div class="desk-shadow"></div>
-                        <!-- 环境光效 -->
-                        <div class="ambient-light"></div>
-                    </div>
-                </div>
-                
-                <!-- 底部功能栏 -->
-                <div class="room-footer">
-                    <button class="utility-btn settings-btn">⚙️ 设置</button>
-                    <button class="utility-btn help-btn">❓ 帮助</button>
-                    <button class="utility-btn exit-btn">🚪 退出游戏</button>
+                <!-- 加载遮罩层 -->
+                <div class="desktop-loading" id="desktopLoading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在加载桌面环境...</div>
                 </div>
             </div>
         `;
@@ -457,252 +387,120 @@ class PageManager {
     }
 
     /**
-     * 初始化游戏选择页面 - POV房间界面
+     * 初始化游戏选择页面
      */
     initGameSelectPage() {
-        console.log('初始化POV房间界面');
+        console.log('初始化Canvas桌面游戏选择页面');
         
-        // 绑定返回按钮
-        const backButton = document.querySelector('.back-button');
-        if (backButton) {
-            backButton.addEventListener('click', () => {
-                this.showPage('home', { transition: 'slideRight' });
-            });
+        // 获取Canvas元素
+        const canvas = document.getElementById('desktopCanvas');
+        if (!canvas) {
+            console.error('找不到桌面Canvas元素');
+            return;
         }
         
-        // 绑定交互区域事件
-        this.bindInteractiveAreas();
+        // 创建Canvas渲染器
+        this.canvasRenderer = new CanvasDesktopRenderer(canvas);
         
-        // 绑定底部功能按钮
-        this.bindUtilityButtons();
-        
-        // 初始化房间环境效果
-        this.initRoomEffects();
-    }
-    
-    /**
-     * 绑定交互区域事件
-     */
-    bindInteractiveAreas() {
-        const interactiveAreas = document.querySelectorAll('.interactive-area');
-        
-        interactiveAreas.forEach(area => {
-            const action = area.dataset.action;
-            
-            // 添加悬停效果
-            area.addEventListener('mouseenter', () => {
-                area.classList.add('hovered');
-                // 播放悬停音效（如果有）
-                if (window.ServiceLocator) {
-                    const audio = window.ServiceLocator.get('audio');
-                    if (audio) {
-                        audio.play('hover', 0.3); // 低音量悬停音效
-                    }
-                }
-            });
-            
-            area.addEventListener('mouseleave', () => {
-                area.classList.remove('hovered');
-            });
-            
-            // 添加点击事件
-            area.addEventListener('click', () => {
-                this.handleAreaClick(action, area);
-            });
-        });
-    }
-    
-    /**
-     * 处理区域点击事件
-     */
-    handleAreaClick(action, element) {
-        // 添加点击动画
-        element.classList.add('clicked');
-        setTimeout(() => {
-            element.classList.remove('clicked');
-        }, 200);
-        
-        // 播放点击音效
-        if (window.ServiceLocator) {
-            const audio = window.ServiceLocator.get('audio');
-            if (audio) {
-                audio.play('click');
-            }
-        }
-        
-        switch (action) {
-            case 'terminal':
-                console.log('启动终端模式');
-                this.enterTerminalMode();
-                break;
-                
-            case 'files':
-                console.log('访问档案系统（开发中）');
-                this.showDevelopmentMessage('档案系统');
-                break;
-                
-            case 'field':
-                console.log('开始外勤行动');
-                this.enterFieldActionMode();
-                break;
-                
-            default:
-                console.warn('未知的交互区域:', action);
-        }
-    }
-    
-    /**
-     * 绑定底部功能按钮
-     */
-    bindUtilityButtons() {
-        // 设置按钮
-        const settingsBtn = document.querySelector('.settings-btn');
-        if (settingsBtn) {
-            settingsBtn.addEventListener('click', () => {
-                this.showDevelopmentMessage('游戏设置');
-            });
-        }
-        
-        // 帮助按钮
-        const helpBtn = document.querySelector('.help-btn');
-        if (helpBtn) {
-            helpBtn.addEventListener('click', () => {
-                this.showGameHelp();
-            });
-        }
-        
-        // 退出按钮
-        const exitBtn = document.querySelector('.exit-btn');
-        if (exitBtn) {
-            exitBtn.addEventListener('click', () => {
-                this.confirmExit();
-            });
-        }
-    }
-    
-    /**
-     * 初始化房间环境效果
-     */
-    initRoomEffects() {
-        // 为电脑区域添加屏幕发光动画
-        const computerArea = document.querySelector('.computer-area');
-        if (computerArea) {
-            setInterval(() => {
-                const glow = computerArea.querySelector('.screen-glow');
-                if (glow) {
-                    glow.style.opacity = Math.random() * 0.3 + 0.1;
-                }
-            }, 2000 + Math.random() * 3000);
-        }
-        
-        // 为文件区域添加微风效果
-        const filesArea = document.querySelector('.files-area');
-        if (filesArea) {
-            setInterval(() => {
-                const layers = filesArea.querySelectorAll('.file-layer');
-                layers.forEach((layer, index) => {
-                    setTimeout(() => {
-                        layer.style.transform = `translateY(${Math.sin(Date.now() / 1000 + index) * 2}px)`;
-                    }, index * 100);
-                });
-            }, 100);
-        }
-    }
-    
-    /**
-     * 进入外勤行动模式
-     */
-    enterFieldActionMode() {
-        // 这里将来连接到新的外勤行动系统
-        console.log('外勤行动模式（待开发）');
-        this.showDevelopmentMessage('外勤行动系统', '这个功能正在开发中，敬请期待！\n\n将包含：\n- 城市地图探索\n- 实时任务系统\n- 装备管理\n- 潜行与战斗');
-    }
-    
-    /**
-     * 显示开发中功能提示
-     */
-    showDevelopmentMessage(featureName, details = '') {
-        const message = details || `${featureName}功能正在开发中，敬请期待！`;
-        
-        // 创建自定义提示框
-        const overlay = document.createElement('div');
-        overlay.className = 'dev-message-overlay';
-        overlay.innerHTML = `
-            <div class="dev-message-box">
-                <div class="dev-message-header">
-                    <h3>🚧 开发中</h3>
-                    <button class="dev-message-close">×</button>
-                </div>
-                <div class="dev-message-content">
-                    <p>${message}</p>
-                </div>
-                <div class="dev-message-footer">
-                    <button class="dev-message-ok">了解</button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(overlay);
-        
-        // 绑定关闭事件
-        const closeBtn = overlay.querySelector('.dev-message-close');
-        const okBtn = overlay.querySelector('.dev-message-ok');
-        
-        const closeMessage = () => {
-            overlay.remove();
+        // 设置事件处理器
+        this.canvasRenderer.onItemClick = (action, item) => {
+            console.log(`Canvas物品点击: ${action}`);
+            this.handleDesktopItemClick(action);
         };
         
-        closeBtn.addEventListener('click', closeMessage);
-        okBtn.addEventListener('click', closeMessage);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeMessage();
-        });
-    }
-    
-    /**
-     * 显示游戏帮助
-     */
-    showGameHelp() {
-        const helpContent = `
-            <strong>华府谍影 - 游戏帮助</strong><br><br>
-            
-            <strong>🖥️ 复古终端</strong><br>
-            经典的冷战时代计算机体验，使用命令行操作：<br>
-            • help - 查看可用命令<br>
-            • datastatus - 查看数据状态<br>
-            • run map - 运行地图程序<br><br>
-            
-            <strong>📁 机密档案</strong><br>
-            查阅情报文件和人物档案（开发中）<br><br>
-            
-            <strong>🗺️ 外勤装备</strong><br>
-            执行实地间谍任务（开发中）<br><br>
-            
-            <strong>操作提示：</strong><br>
-            • 鼠标悬停查看详细信息<br>
-            • 点击不同区域进入对应模式<br>
-            • ESC键返回上级菜单
-        `;
-        
-        this.showDevelopmentMessage('游戏帮助', helpContent);
-    }
-    
-    /**
-     * 确认退出游戏
-     */
-    confirmExit() {
-        const confirmed = confirm('确定要退出华府谍影吗？\n\n未保存的进度可能会丢失。');
-        if (confirmed) {
-            // 这里可以添加保存游戏状态的逻辑
-            window.close() || (window.location.href = 'about:blank');
-        }
+        this.canvasRenderer.onLoadComplete = () => {
+            console.log('Canvas桌面加载完成');
+            // 隐藏加载遮罩
+            setTimeout(() => {
+                const loading = document.getElementById('desktopLoading');
+                if (loading) {
+                    loading.classList.add('hidden');
+                }
+            }, 500);
+        };
     }
 
     /**
      * 清理游戏选择页面
      */
     cleanupGameSelectPage() {
-        console.log('清理游戏选择页面');
+        console.log('清理Canvas桌面游戏选择页面');
+        
+        // 清理Canvas渲染器
+        if (this.canvasRenderer) {
+            this.canvasRenderer.destroy();
+            this.canvasRenderer = null;
+        }
+    }
+
+
+
+    /**
+     * 处理桌面物品点击
+     */
+    handleDesktopItemClick(action) {
+        console.log(`桌面物品点击: ${action}`);
+        
+        // 播放点击音效
+        if (window.ServiceLocator) {
+            const audio = window.ServiceLocator.get('audio');
+            if (audio) {
+                audio.play('crtButton');
+            }
+        }
+        
+        switch (action) {
+            case 'terminal':
+                this.enterTerminalMode();
+                break;
+            case 'battle':
+                alert('战斗系统正在开发中，敬请期待！');
+                break;
+            case 'map':
+                // 直接进入地图模式
+                this.enterMapMode();
+                break;
+            case 'docs':
+            case 'settings':
+                alert('该功能正在开发中，敬请期待！');
+                break;
+            case 'home':
+                this.showPage('home', { transition: 'slideRight' });
+                break;
+            default:
+                console.warn(`未知的桌面操作: ${action}`);
+        }
+    }
+
+    /**
+     * 进入地图模式
+     */
+    async enterMapMode() {
+        try {
+            // 确保游戏核心已初始化
+            if (window.initializeGameCore) {
+                if (window.GameCore && !window.GameCore.initialized) {
+                    console.log('初始化游戏核心...');
+                    await window.initializeGameCore();
+                }
+            }
+            
+            // 切换到终端页面
+            this.showPage('terminal', { transition: 'scaleIn' });
+            
+            // 等待终端初始化完成后打开地图
+            setTimeout(() => {
+                if (window.gameController && window.gameController.model.isOn) {
+                    // 触发地图程序运行
+                    if (window.EventBus) {
+                        window.EventBus.emit('runProgram', { program: 'map' });
+                    }
+                }
+            }, 1500);
+        } catch (error) {
+            console.error('进入地图模式失败:', error);
+            alert('进入地图模式失败，请查看控制台了解详情');
+        }
     }
 
     /**

@@ -38,7 +38,7 @@ class CanvasDesktopRenderer {
                 enabled: true,
                 // 标签形变（可按需微调）
                 labelTransform: {
-                    offsetX: -100,
+                    offsetX: -130,
                     offsetY: -180,
                     rotationDeg: -8,
                     skewXDeg: -5,
@@ -87,13 +87,13 @@ class CanvasDesktopRenderer {
                 tooltip: '武器系统（开发中）',
                 enabled: false,
                 labelTransform: {
-                    offsetX: 0,
-                    offsetY: 128,
+                    offsetX: -80,
+                    offsetY: 48,
                     rotationDeg: 14,
-                    skewXDeg: 0,
+                    skewXDeg: 8,
                     skewYDeg: 0,
-                    scaleX: 2,
-                    scaleY: 2
+                    scaleX: 1.82,
+                    scaleY: 1.8
                 }
             },
             doc1: {
@@ -129,11 +129,11 @@ class CanvasDesktopRenderer {
                 labelTransform: {
                     offsetX: 0,
                     offsetY: 0,
-                    rotationDeg: 0,
-                    skewXDeg: 0,
+                    rotationDeg: 10,
+                    skewXDeg: 5,
                     skewYDeg: 0,
-                    scaleX: 1.6,
-                    scaleY: 1.6
+                    scaleX: 1.8,
+                    scaleY: 1.8
                 }
             },
             chair: {
@@ -150,7 +150,7 @@ class CanvasDesktopRenderer {
                     offsetX: 0,
                     offsetY: -10,
                     rotationDeg: 0,
-                    skewXDeg: 0,
+                    skewXDeg: 0,   
                     skewYDeg: 0,
                     scaleX: 2,
                     scaleY: 2

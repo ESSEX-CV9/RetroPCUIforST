@@ -792,28 +792,34 @@ class PageManager {
         try {
             // 以覆盖模式显示终端页面，保持游戏选择页面在背景
             this.showPage('terminal', { transition: 'scaleIn', overlay: true });
-            
-            // 等待DOM渲染完成后再初始化游戏核心和地图
-            setTimeout(async () => {
+
+            // 略等一帧，确保终端DOM已挂载
+            await new Promise((r) => setTimeout(r, 50));
+
             // 确保游戏核心已初始化
-            if (window.initializeGameCore) {
-                if (window.GameCore && !window.GameCore.initialized) {
-                    console.log('初始化游戏核心...');
-                    await window.initializeGameCore();
-                }
+            if (window.initializeGameCore && (!window.GameCore || !window.GameCore.initialized)) {
+                console.log('初始化游戏核心...');
+                await window.initializeGameCore();
             }
-            
-                // 再等待一下确保游戏核心完全初始化
-            setTimeout(() => {
-                if (window.gameController && window.gameController.model.isOn) {
-                    // 触发地图程序运行
-                    if (window.EventBus) {
-                        window.EventBus.emit('runProgram', { program: 'map' });
-                    }
-                }
-                }, 1000);
-            }, 100); // 给DOM一些时间来渲染
-            
+
+            // 确保系统已开机
+            if (window.gameController && !window.gameController.model.isOn) {
+                console.log('自动开机系统以进入地图...');
+                window.gameController.powerOn();
+                await this.waitForSystemBoot(8000); // 最多等待8秒
+            } else {
+                // 已经开机，稍作等待以确保界面服务就绪
+                await new Promise((r) => setTimeout(r, 150));
+            }
+
+            // 直接切换到地图界面（优先走界面服务）
+            const interfaceService = window.ServiceLocator && window.ServiceLocator.get('interface');
+            if (interfaceService && typeof interfaceService.switchTo === 'function') {
+                interfaceService.switchTo('map');
+            } else if (window.EventBus) {
+                // 回退：发布运行地图事件
+                window.EventBus.emit('runProgram', { program: 'map' });
+            }
         } catch (error) {
             console.error('进入地图模式失败:', error);
             alert('进入地图模式失败，请查看控制台了解详情');
@@ -1065,6 +1071,56 @@ class PageManager {
             terminalPage.removeEventListener('click', this.outsideClickHandler);
             this.outsideClickHandler = null;
         }
+    }
+
+    /**
+     * 等待系统启动完成事件
+     * @param {number} timeoutMs 超时时间
+     */
+    waitForSystemBoot(timeoutMs = 5000) {
+        return new Promise((resolve) => {
+            try {
+                const bus = (window.ServiceLocator && window.ServiceLocator.get('eventBus')) || window.EventBus;
+                let settled = false;
+
+                // 如果已经是开机完成状态，直接返回
+                if (window.gameController && window.gameController.model && window.gameController.model.isOn) {
+                    return resolve();
+                }
+
+                const timer = setTimeout(() => {
+                    if (!settled) {
+                        settled = true;
+                        resolve();
+                    }
+                }, timeoutMs);
+
+                if (bus && typeof bus.once === 'function') {
+                    bus.once('systemBootComplete', () => {
+                        if (!settled) {
+                            settled = true;
+                            clearTimeout(timer);
+                            resolve();
+                        }
+                    });
+                } else if (bus && typeof bus.on === 'function') {
+                    const handler = () => {
+                        if (!settled) {
+                            settled = true;
+                            clearTimeout(timer);
+                            if (bus && typeof bus.off === 'function') bus.off('systemBootComplete', handler);
+                            resolve();
+                        }
+                    };
+                    bus.on('systemBootComplete', handler);
+                } else {
+                    // 无事件总线，直接继续
+                    resolve();
+                }
+            } catch (e) {
+                resolve();
+            }
+        });
     }
 }
 

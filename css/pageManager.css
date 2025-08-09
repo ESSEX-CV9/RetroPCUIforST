@@ -322,6 +322,106 @@
     overflow: hidden; /* 禁用滚动条 */
 }
 
+/* 战斗页面样式 */
+.battle-page {
+    background: #0e0f14;
+    color: #e6f1ff;
+    font-family: 'Courier New', monospace;
+}
+
+.battle-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.battle-stage {
+    flex: 2;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    background: radial-gradient(ellipse at center, rgba(20,30,48,0.9) 0%, rgba(10,10,16,1) 80%);
+}
+
+.battle-actors {
+    width: 100%;
+    max-width: 1200px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.actor {
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255,255,255,0.02);
+}
+
+.actor .actor-name {
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.hp-bar {
+    width: 100%;
+    height: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #21d07a, #18a558);
+    width: 100%;
+}
+
+.actor-stats { margin-top: 6px; font-size: 12px; color: #a8b2d1; }
+.actor-sprite { margin-top: 8px; height: 120px; background: rgba(255,255,255,0.04); border-radius: 6px; }
+
+.battle-float {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffd166;
+    font-size: 20px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.action-menu { position: absolute; bottom: 20px; display: flex; gap: 12px; }
+.action-menu.hidden { display: none; }
+.action-menu button {
+    background: rgba(0, 255, 136, 0.1);
+    border: 1px solid #00ff88;
+    color: #00ff88;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.action-menu button:hover { background: rgba(0,255,136,0.2); }
+
+.battle-hud {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #111318;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.hud-left, .hud-center, .hud-right { overflow: hidden; }
+.items { display: flex; gap: 10px; flex-wrap: wrap; }
+.items .item { border: 1px solid #2a2f3a; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.items .item:hover { border-color: #00ff88; }
+.log { font-size: 12px; color: #a8b2d1; line-height: 1.5; max-height: 100%; overflow: auto; }
+
 .terminal-page.active {
     display: flex !important;
     flex-direction: column;

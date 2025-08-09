@@ -116,6 +116,14 @@ class PageManager {
             onShow: () => this.initTerminalPage(),
             onHide: () => this.cleanupTerminalPage()
         });
+
+        // 战斗页面
+        this.registerPage('battle', {
+            title: '战斗系统',
+            template: this.getBattlePageTemplate(),
+            onShow: () => this.initBattlePage(),
+            onHide: () => this.cleanupBattlePage()
+        });
     }
 
     /**
@@ -656,6 +664,49 @@ class PageManager {
     }
 
     /**
+     * 获取战斗页面模板
+     */
+    getBattlePageTemplate() {
+        return `
+            <div class="battle-container">
+                <div class="battle-stage">
+                    <div class="battle-actors">
+                        <div class="actor player">
+                            <div class="actor-name" id="battlePlayerName">PLAYER</div>
+                            <div class="hp-bar"><div class="hp-fill" id="battlePlayerHP"></div></div>
+                            <div class="actor-stats" id="battlePlayerStats"></div>
+                            <div class="actor-sprite" id="battlePlayerSprite"></div>
+                        </div>
+                        <div class="actor enemy">
+                            <div class="actor-name" id="battleEnemyName">ENEMY</div>
+                            <div class="hp-bar"><div class="hp-fill" id="battleEnemyHP"></div></div>
+                            <div class="actor-stats" id="battleEnemyStats"></div>
+                            <div class="actor-sprite" id="battleEnemySprite"></div>
+                        </div>
+                    </div>
+                    <div class="battle-float" id="battleFloat"></div>
+                    <div class="action-menu hidden" id="battleActionMenu">
+                        <button data-action="attack">攻击 (A)</button>
+                        <button data-action="item">物品 (I)</button>
+                        <button data-action="reload">换弹 (R)</button>
+                    </div>
+                </div>
+                <div class="battle-hud">
+                    <div class="hud-left">
+                        <div class="hud-line" id="hudPlayerLine"></div>
+                    </div>
+                    <div class="hud-center">
+                        <div class="items" id="battleItems"></div>
+                    </div>
+                    <div class="hud-right">
+                        <div class="log" id="battleLog"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
      * 初始化HOME页面
      */
     initHomePage() {
@@ -746,6 +797,254 @@ class PageManager {
         }
     }
 
+    /**
+     * 初始化战斗页面
+     */
+    initBattlePage() {
+        console.log('初始化战斗页面');
+
+        // 懒加载一次服务与控制器（简化落地：放在PageManager内）
+        if (!this.battleService) {
+            this.battleService = {
+                clamp: (n, min, max) => Math.max(min, Math.min(max, n)),
+                computeDamage(attacker, defender) {
+                    const ap = attacker.ap || 0;
+                    const armor = defender.armor || 0;
+                    const atk = attacker.atk || 0;
+                    let multiplier = 1 - 0.1 * (armor - ap);
+                    multiplier = this.clamp(multiplier, 0, 2);
+                    let dmg = Math.floor(atk * multiplier);
+                    return Math.max(0, dmg);
+                }
+            };
+        }
+
+        // 模型
+        if (!this.battleModel) {
+            this.battleModel = {
+                state: null,
+                createDefaultCombat() {
+                    return {
+                        round: 1,
+                        turn: 'player',
+                        isEnded: false,
+                        log: [],
+                        player: { name: 'AGENT', atk: 20, ap: 3, armor: 2, hp: 100, maxHp: 100, ammo: 6, ammoMax: 6, items: [{ id: 'medkit', name: '急救包', stacks: 1 }, { id: 'mag', name: '弹匣', stacks: 1 }] },
+                        enemy: { name: 'GUARD', atk: 12, ap: 2, armor: 4, hp: 80, maxHp: 80, ammo: 4, ammoMax: 4, items: [] }
+                    };
+                },
+                setState(s) { this.state = s; },
+                getState() { return this.state; }
+            };
+        }
+
+        // 视图
+        const qs = (sel) => document.querySelector(sel);
+        const logEl = qs('#battleLog');
+        const itemsEl = qs('#battleItems');
+        const floatEl = qs('#battleFloat');
+        const actionMenu = qs('#battleActionMenu');
+        const hpP = qs('#battlePlayerHP');
+        const hpE = qs('#battleEnemyHP');
+        const nameP = qs('#battlePlayerName');
+        const nameE = qs('#battleEnemyName');
+        const statsP = qs('#battlePlayerStats');
+        const statsE = qs('#battleEnemyStats');
+
+        const view = this.battleView = {
+            renderAll(state) {
+                nameP.textContent = state.player.name;
+                nameE.textContent = state.enemy.name;
+                this.updateHPBars(state);
+                statsP.textContent = `ATK ${state.player.atk} | 穿甲 ${state.player.ap} | 护甲 ${state.player.armor} | 弹药 ${state.player.ammo}/${state.player.ammoMax}`;
+                statsE.textContent = `ATK ${state.enemy.atk} | 穿甲 ${state.enemy.ap} | 护甲 ${state.enemy.armor} | 弹药 ${state.enemy.ammo}/${state.enemy.ammoMax}`;
+                this.renderItems(state.player.items || []);
+            },
+            updateHPBars(state) {
+                const p = Math.max(0, Math.min(100, Math.round((state.player.hp / state.player.maxHp) * 100)));
+                const e = Math.max(0, Math.min(100, Math.round((state.enemy.hp / state.enemy.maxHp) * 100)));
+                hpP.style.width = p + '%';
+                hpE.style.width = e + '%';
+            },
+            renderItems(items) {
+                itemsEl.innerHTML = '';
+                items.forEach((it, idx) => {
+                    const el = document.createElement('div');
+                    el.className = 'item';
+                    el.dataset.index = String(idx);
+                    el.textContent = `${it.name} x${it.stacks}`;
+                    itemsEl.appendChild(el);
+                });
+            },
+            log(text) {
+                const line = document.createElement('div');
+                line.textContent = text;
+                logEl.appendChild(line);
+                logEl.scrollTop = logEl.scrollHeight;
+            },
+            floatText(text) {
+                floatEl.textContent = text;
+                floatEl.style.opacity = '1';
+                setTimeout(() => { floatEl.style.opacity = '0'; }, 600);
+            },
+            showMenu(show) {
+                actionMenu.classList.toggle('hidden', !show);
+            }
+        };
+
+        // 控制器
+        const service = this.battleService;
+        const model = this.battleModel;
+        const controller = this.battleController = {
+            async start() {
+                const s = model.createDefaultCombat();
+                model.setState(s);
+                view.renderAll(s);
+                view.log('战斗开始');
+                view.showMenu(true);
+                this.bindUI();
+            },
+            bindUI() {
+                // 菜单按钮
+                actionMenu.onclick = (e) => {
+                    const btn = e.target.closest('button');
+                    if (!btn) return;
+                    const act = btn.dataset.action;
+                    if (act === 'attack') this.playerAttack();
+                    if (act === 'reload') this.playerReload();
+                    if (act === 'item') this.playerUseItemPrompt();
+                };
+                // 物品点击
+                itemsEl.onclick = (e) => {
+                    const it = e.target.closest('.item');
+                    if (!it) return;
+                    const idx = Number(it.dataset.index);
+                    this.playerUseItem(idx);
+                };
+                // 快捷键
+                this.keyHandler = (e) => {
+                    if (e.key === 'a' || e.key === 'A') this.playerAttack();
+                    if (e.key === 'r' || e.key === 'R') this.playerReload();
+                    if (e.key === 'i' || e.key === 'I') this.playerUseItemPrompt();
+                    if (e.key === 'Escape') view.showMenu(true);
+                };
+                document.addEventListener('keydown', this.keyHandler);
+            },
+            unbindUI() {
+                if (this.keyHandler) document.removeEventListener('keydown', this.keyHandler);
+                actionMenu.onclick = null;
+                itemsEl.onclick = null;
+            },
+            endIfNeeded() {
+                const s = model.getState();
+                if (s.player.hp <= 0 || s.enemy.hp <= 0) {
+                    s.isEnded = true;
+                    view.showMenu(false);
+                    const result = s.player.hp > 0 ? '胜利' : '失败';
+                    view.log(`战斗结束：${result}`);
+                    return true;
+                }
+                return false;
+            },
+            nextTurn(to) {
+                const s = model.getState();
+                s.turn = to;
+                if (to === 'player') {
+                    s.round += 1;
+                    view.log(`第 ${s.round} 回合`);
+                    view.showMenu(true);
+                }
+            },
+            playerAttack() {
+                const s = model.getState();
+                if (s.isEnded || s.turn !== 'player') return;
+                if (s.player.ammo <= 0) { view.log('弹药不足，请换弹'); view.showMenu(true); return; }
+                s.player.ammo -= 1;
+                const dmg = service.computeDamage(s.player, s.enemy);
+                s.enemy.hp = Math.max(0, s.enemy.hp - dmg);
+                view.floatText(`-${dmg}`);
+                view.log(`你对 ${s.enemy.name} 造成 ${dmg} 伤害`);
+                view.renderAll(s);
+                if (this.endIfNeeded()) return;
+                view.showMenu(false);
+                setTimeout(() => this.enemyAct(), 550);
+            },
+            playerReload() {
+                const s = model.getState();
+                if (s.isEnded || s.turn !== 'player') return;
+                if (s.player.ammo >= s.player.ammoMax) { view.log('弹药已满'); return; }
+                s.player.ammo = s.player.ammoMax;
+                view.log('你更换了弹匣');
+                view.renderAll(s);
+                view.showMenu(false);
+                setTimeout(() => this.enemyAct(), 400);
+            },
+            playerUseItemPrompt() {
+                const s = model.getState();
+                if (!s.player.items || s.player.items.length === 0) { view.log('没有可用物品'); return; }
+                view.log('点击下方物品以使用');
+                view.showMenu(false);
+            },
+            playerUseItem(idx) {
+                const s = model.getState();
+                if (s.isEnded || s.turn !== 'player') return;
+                const it = s.player.items[idx];
+                if (!it || it.stacks <= 0) { view.log('物品不可用'); return; }
+                if (it.id === 'medkit') {
+                    const heal = 20;
+                    s.player.hp = Math.min(s.player.maxHp, s.player.hp + heal);
+                    view.log(`你使用急救包，回复 ${heal} HP`);
+                } else if (it.id === 'mag') {
+                    s.player.ammo = s.player.ammoMax;
+                    view.log('你使用弹匣，弹药已装填');
+                } else {
+                    view.log('未知物品');
+                    return;
+                }
+                it.stacks -= 1;
+                if (it.stacks <= 0) s.player.items.splice(idx, 1);
+                view.renderAll(s);
+                if (this.endIfNeeded()) return;
+                setTimeout(() => this.enemyAct(), 400);
+            },
+            enemyAct() {
+                const s = model.getState();
+                if (s.isEnded) return;
+                this.nextTurn('enemy');
+                // 简单AI：有弹药则攻击，否则换弹；低血用物品（无物品则忽略）
+                let acted = false;
+                if (s.enemy.hp <= Math.floor(s.enemy.maxHp * 0.3)) {
+                    // 无恢复物品，跳过
+                }
+                if (!acted) {
+                    if (s.enemy.ammo > 0) {
+                        s.enemy.ammo -= 1;
+                        const dmg = service.computeDamage(s.enemy, s.player);
+                        s.player.hp = Math.max(0, s.player.hp - dmg);
+                        view.floatText(`-${dmg}`);
+                        view.log(`${s.enemy.name} 对你造成 ${dmg} 伤害`);
+                        view.renderAll(s);
+                        if (this.endIfNeeded()) return;
+                    } else {
+                        s.enemy.ammo = s.enemy.ammoMax;
+                        view.log(`${s.enemy.name} 更换了弹匣`);
+                        view.renderAll(s);
+                    }
+                }
+                this.nextTurn('player');
+            }
+        };
+
+        controller.start();
+    }
+
+    /** 清理战斗页面 */
+    cleanupBattlePage() {
+        if (this.battleController && this.battleController.unbindUI) {
+            this.battleController.unbindUI();
+        }
+    }
+
 
 
     /**
@@ -767,7 +1066,13 @@ class PageManager {
                 this.enterTerminalMode();
                 break;
             case 'battle':
-                alert('战斗系统正在开发中，敬请期待！');
+                // 从DOC_2(设置)按钮进入的战斗页面
+                if (!this.pages.battle) {
+                    console.warn('战斗页面未注册，暂以提示代替');
+                    alert('战斗系统正在开发中，敬请期待！');
+                } else {
+                    this.showPage('battle', { transition: 'scaleIn' });
+                }
                 break;
             case 'map':
                 // 直接进入地图模式
@@ -776,6 +1081,9 @@ class PageManager {
             case 'docs':
             case 'settings':
                 alert('该功能正在开发中，敬请期待！');
+                break;
+            case 'equipment':
+                alert('装备管理功能正在开发中，敬请期待！');
                 break;
             case 'home':
                 this.showPage('home', { transition: 'slideRight' });

@@ -36,6 +36,16 @@ class CanvasDesktopRenderer {
                 action: 'terminal',
                 tooltip: '进入终端系统',
                 enabled: true,
+                // 标签形变（可按需微调）
+                labelTransform: {
+                    offsetX: -100,
+                    offsetY: -180,
+                    rotationDeg: -8,
+                    skewXDeg: -5,
+                    skewYDeg: 0,
+                    scaleX: 2,
+                    scaleY: 2
+                },
                 // 视频配置
                 video: {
                     src: 'http://localhost:5500/assets/images/room/Screen.MP4',
@@ -55,7 +65,16 @@ class CanvasDesktopRenderer {
                 height: 333,
                 action: 'map',
                 tooltip: '查看地图',
-                enabled: true
+                enabled: true,
+                labelTransform: {
+                    offsetX: 10,
+                    offsetY: 12,
+                    rotationDeg: 0,
+                    skewXDeg: 0,
+                    skewYDeg: 0,
+                    scaleX: 1.6,
+                    scaleY: 1.6
+                }
             },
             gun: {
                 name: 'gun',
@@ -66,7 +85,16 @@ class CanvasDesktopRenderer {
                 height: 244,
                 action: 'battle',
                 tooltip: '武器系统（开发中）',
-                enabled: false
+                enabled: false,
+                labelTransform: {
+                    offsetX: 0,
+                    offsetY: 128,
+                    rotationDeg: 14,
+                    skewXDeg: 0,
+                    skewYDeg: 0,
+                    scaleX: 2,
+                    scaleY: 2
+                }
             },
             doc1: {
                 name: 'doc1',
@@ -77,7 +105,16 @@ class CanvasDesktopRenderer {
                 height: 510,
                 action: 'docs',
                 tooltip: '文档系统（开发中）',
-                enabled: false
+                enabled: false,
+                labelTransform: {
+                    offsetX: 0,
+                    offsetY: 0,
+                    rotationDeg: 0,
+                    skewXDeg: 0,
+                    skewYDeg: 0,
+                    scaleX: 1.6,
+                    scaleY: 1.6
+                }
             },
             settings: {
                 name: 'settings',
@@ -88,7 +125,16 @@ class CanvasDesktopRenderer {
                 height: 448,
                 action: 'settings',
                 tooltip: '游戏设置（开发中）',
-                enabled: false
+                enabled: false,
+                labelTransform: {
+                    offsetX: 0,
+                    offsetY: 0,
+                    rotationDeg: 0,
+                    skewXDeg: 0,
+                    skewYDeg: 0,
+                    scaleX: 1.6,
+                    scaleY: 1.6
+                }
             },
             chair: {
                 name: 'chair',
@@ -99,13 +145,63 @@ class CanvasDesktopRenderer {
                 height: 232,
                 action: 'home',
                 tooltip: '返回主页',
-                enabled: true
+                enabled: true,
+                labelTransform: {
+                    offsetX: 0,
+                    offsetY: -10,
+                    rotationDeg: 0,
+                    skewXDeg: 0,
+                    skewYDeg: 0,
+                    scaleX: 2,
+                    scaleY: 2
+                }
             }
         };
+        
+        // 常驻标签配置
+        this.showPersistentLabels = true;
+        this.labelStyle = {
+            fontFamily: "'VT323', monospace", // 与全局 zpix 字体一致
+            baseFontSize: 28,
+            minFontSize: 14,
+            paddingX: 12,
+            paddingY: 6,
+            bgColorEnabled: 'rgba(0, 0, 0, 0.6)',
+            bgColorDisabled: 'rgba(0, 0, 0, 0.5)',
+            textColorEnabled: '#00ff88',
+            textColorDisabled: '#888888',
+            borderColorEnabled: 'rgba(0, 255, 136, 0.6)',
+            borderColorDisabled: 'rgba(255, 255, 255, 0.2)',
+            borderWidth: 1,
+            borderRadius: 6,
+            maxLabelWidthRatio: 0.8
+        };
+        
+        // 标签动画配置
+        this.labelAnimation = {
+            enabled: true,
+            // 垂直轻微浮动（像素，基于未缩放坐标）
+            floatAmplitude: 10,
+            floatSpeed: 1.1,
+            // 辉光强度脉冲
+            glowEnabled: true,
+            glowBlur: 12,
+            glowMinAlpha: 0.15,
+            glowMaxAlpha: 0.45,
+            glowSpeed: 1.0
+        };
+        
+        // 动画起始时间
+        this._animStart = (typeof performance !== 'undefined' ? performance.now() : Date.now());
         
         // 当前悬停的物品
         this.hoveredItem = null;
         this.tooltip = null;
+
+        // 标签命中区域缓存（每帧更新）
+        this.labelHitAreas = {};
+        // 悬停状态（区分是否悬在标签上）
+        this.hoverState = { itemName: null, overLabel: false };
         
         // 事件处理器
         this.onItemClick = null;
@@ -335,6 +431,12 @@ class CanvasDesktopRenderer {
             this.ctx.restore();
         });
         
+        // 绘制常驻标签（位于每个物品几何中心）
+        const t = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - this._animStart) / 1000;
+        if (this.showPersistentLabels) {
+            this.drawItemLabels(t);
+        }
+        
         // 恢复上下文状态
         this.ctx.restore();
     }
@@ -441,15 +543,20 @@ class CanvasDesktopRenderer {
             const x = (e.clientX - rect.left) / this.scale;
             const y = (e.clientY - rect.top) / this.scale;
             
-            const hoveredItem = this.getItemAt(x, y);
-            
-            if (hoveredItem !== this.hoveredItem) {
-                this.hoveredItem = hoveredItem;
+            const target = this.getHoverTargetAt(x, y);
+            const newHoveredItem = target ? target.item : null;
+            const overLabel = !!(target && target.type === 'label');
+            const hoverChanged = (newHoveredItem !== this.hoveredItem) || (overLabel !== this.hoverState.overLabel);
+
+            if (hoverChanged) {
+                this.hoveredItem = newHoveredItem;
+                this.hoverState = { itemName: newHoveredItem ? newHoveredItem.name : null, overLabel };
                 this.updateCursor();
                 this.render();
-                this.updateTooltip(e, hoveredItem);
-            } else if (hoveredItem) {
-                this.updateTooltip(e, hoveredItem);
+                if (newHoveredItem) this.updateTooltip(e, newHoveredItem); else this.hideTooltip();
+            } else if (newHoveredItem) {
+                // 更新 tooltip 跟随位置
+                this.updateTooltip(e, newHoveredItem);
             }
         });
         
@@ -459,8 +566,8 @@ class CanvasDesktopRenderer {
             const x = (e.clientX - rect.left) / this.scale;
             const y = (e.clientY - rect.top) / this.scale;
             
-            const clickedItem = this.getItemAt(x, y);
-            
+            const target = this.getHoverTargetAt(x, y);
+            const clickedItem = target ? target.item : null;
             if (clickedItem && clickedItem.enabled && this.onItemClick) {
                 this.onItemClick(clickedItem.action, clickedItem);
             }
@@ -470,6 +577,7 @@ class CanvasDesktopRenderer {
         this.canvas.addEventListener('mouseleave', () => {
             if (this.hoveredItem) {
                 this.hoveredItem = null;
+                this.hoverState = { itemName: null, overLabel: false };
                 this.updateCursor();
                 this.render();
                 this.hideTooltip();
@@ -496,6 +604,44 @@ class CanvasDesktopRenderer {
             }
         }
         return null;
+    }
+    
+    /**
+     * 获取悬停目标：优先检测标签命中，其次检测底层物品
+     */
+    getHoverTargetAt(x, y) {
+        // 先检测标签 AABB，再进行多边形精确判定
+        for (const [name, area] of Object.entries(this.labelHitAreas)) {
+            if (!area || !area.aabb) continue;
+            const aabb = area.aabb;
+            if (this.isPointInAABB(x, y, aabb)) {
+                if (area.points && this.isPointInPolygon(x, y, area.points)) {
+                    return { type: 'label', item: area.item };
+                }
+                // 退化情况下仅用 AABB
+                return { type: 'label', item: area.item };
+            }
+        }
+        // 否则回退到物品矩形
+        const item = this.getItemAt(x, y);
+        return item ? { type: 'item', item } : null;
+    }
+
+    isPointInAABB(x, y, aabb) {
+        return x >= aabb.minX && x <= aabb.maxX && y >= aabb.minY && y <= aabb.maxY;
+    }
+
+    isPointInPolygon(x, y, points) {
+        // 射线法
+        let inside = false;
+        for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            const xi = points[i].x, yi = points[i].y;
+            const xj = points[j].x, yj = points[j].y;
+            const intersect = ((yi > y) !== (yj > y)) &&
+                (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
     }
     
     /**
@@ -530,7 +676,7 @@ class CanvasDesktopRenderer {
                 padding: 8px 12px;
                 border-radius: 4px;
                 font-size: 12px;
-                font-family: 'Courier New', monospace;
+                font-family: 'VT323', monospace;
                 z-index: 10000;
                 pointer-events: none;
                 opacity: 0;
@@ -595,6 +741,198 @@ class CanvasDesktopRenderer {
         // 清理图片资源
         this.images = {};
         this.isLoaded = false;
+    }
+
+    // 绘制所有物品的常驻标签（带动画时间）
+    drawItemLabels(t) {
+        const entries = Object.values(this.items);
+        for (let i = 0; i < entries.length; i++) {
+            const item = entries[i];
+            const text = item.label || item.tooltip;
+            if (!text) continue;
+            this.drawLabelAtCenter(item, text, item.enabled !== false, t, i);
+        }
+    }
+
+    // 在物品中心绘制标签（带圆角底板、动画与仿透视变换）
+    drawLabelAtCenter(item, text, isEnabled, t = 0, index = 0) {
+        const { paddingX, paddingY, baseFontSize, minFontSize, fontFamily, borderRadius, borderWidth,
+                bgColorEnabled, bgColorDisabled, textColorEnabled, textColorDisabled,
+                borderColorEnabled, borderColorDisabled, maxLabelWidthRatio } = this.labelStyle;
+        const anim = this.labelAnimation;
+
+        // 字体适配（根据可用宽度缩放）
+        const maxTextWidth = item.width * maxLabelWidthRatio;
+        const fontSize = this.fitFontSizeToWidth(text, maxTextWidth, baseFontSize, minFontSize, fontFamily);
+        
+        // 设置字体与对齐
+        this.ctx.font = `${fontSize}px ${fontFamily}`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        // 测量文本尺寸
+        const textWidth = this.ctx.measureText(text).width;
+        const textHeight = fontSize; // 近似
+        const boxWidth = textWidth + paddingX * 2;
+        const boxHeight = textHeight + paddingY * 2;
+
+        // 颜色
+        const bgColor = isEnabled ? bgColorEnabled : bgColorDisabled;
+        const textColor = isEnabled ? textColorEnabled : textColorDisabled;
+        const borderColor = isEnabled ? borderColorEnabled : borderColorDisabled;
+
+        // 物品中心
+        const centerX = item.x + item.width / 2;
+        const centerY = item.y + item.height / 2;
+
+        // 动画浮动与辉光脉冲
+        const phase = index * 0.9; // 让不同标签相位不同
+        const floatOffsetY = (anim.enabled ? Math.sin(t * anim.floatSpeed + phase) * anim.floatAmplitude : 0);
+        const glowAlpha = (anim.enabled && anim.glowEnabled)
+            ? (anim.glowMinAlpha + (Math.sin(t * anim.glowSpeed + phase) + 1) / 2 * (anim.glowMaxAlpha - anim.glowMinAlpha))
+            : 0;
+
+        // 每标签变换（位移/旋转/倾斜模拟透视）
+        const lt = item.labelTransform || {};
+        const offsetX = lt.offsetX || 0;
+        const offsetY = lt.offsetY || 0;
+        const rotationDeg = lt.rotationDeg || 0;
+        let scaleX = (lt.scaleX == null ? 1 : lt.scaleX);
+        let scaleY = (lt.scaleY == null ? 1 : lt.scaleY);
+        const skewXDeg = lt.skewXDeg || 0; // 通过倾斜模拟透视
+        const skewYDeg = lt.skewYDeg || 0;
+ 
+        // 悬浮在标签或按钮图片上时的额外高亮效果
+        const isHoveredItem = !!(this.hoverState && this.hoverState.itemName === item.name);
+        const isHoveredLabel = !!(this.hoverState && this.hoverState.itemName === item.name && this.hoverState.overLabel);
+        const isHoveredActive = isHoveredItem || isHoveredLabel;
+        if (isHoveredActive) {
+            scaleX *= 1.06;
+            scaleY *= 1.06;
+        }
+
+        // 保存上下文，应用复合变换（以标签中心为锚点0,0）
+        this.ctx.save();
+        this.ctx.translate(centerX + offsetX, centerY + offsetY + floatOffsetY);
+        if (rotationDeg) this.ctx.rotate(this.degToRad(rotationDeg));
+        if (scaleX !== 1 || scaleY !== 1) this.ctx.scale(scaleX, scaleY);
+        if (skewXDeg) this.ctx.transform(1, 0, Math.tan(this.degToRad(skewXDeg)), 1, 0, 0);
+        if (skewYDeg) this.ctx.transform(1, Math.tan(this.degToRad(skewYDeg)), 0, 1, 0, 0);
+
+        // 半透明底板（带可选辉光）
+        if (anim.enabled && anim.glowEnabled && (glowAlpha > 0 || isHoveredActive) && isEnabled) {
+            this.ctx.shadowBlur = anim.glowBlur + (isHoveredActive ? 6 : 0);
+            this.ctx.shadowColor = `rgba(0, 255, 160, ${(Math.max(glowAlpha, 0.35 * (isHoveredActive ? 1 : 0))).toFixed(3)})`;
+        } else {
+            this.ctx.shadowBlur = 0;
+        }
+
+        // 底板路径（以当前变换坐标为中心绘制）
+        const rectX = -boxWidth / 2;
+        const rectY = -boxHeight / 2;
+        this.drawRoundedRect(rectX, rectY, boxWidth, boxHeight, borderRadius);
+        this.ctx.fillStyle = bgColor;
+        this.ctx.fill();
+
+        // 边框
+        if (borderWidth > 0) {
+            this.ctx.lineWidth = borderWidth + (isHoveredActive ? 1 : 0);
+            this.ctx.strokeStyle = isHoveredActive ? 'rgba(0, 255, 200, 0.9)' : borderColor;
+            this.ctx.stroke();
+        }
+
+        // 文本
+        this.ctx.fillStyle = textColor;
+        this.ctx.fillText(text, 0, 0);
+
+        // 记录标签命中区域（记录当前帧的最终形态，包含悬浮放大）
+        const matrix = this.composeTransformMatrix(centerX + offsetX, centerY + offsetY + floatOffsetY, rotationDeg, scaleX, scaleY, skewXDeg, skewYDeg);
+        const localCorners = [
+            { x: -boxWidth / 2, y: -boxHeight / 2 },
+            { x:  boxWidth / 2, y: -boxHeight / 2 },
+            { x:  boxWidth / 2, y:  boxHeight / 2 },
+            { x: -boxWidth / 2, y:  boxHeight / 2 }
+        ];
+        const worldPoints = localCorners.map(p => this.applyMatrixToPoint(matrix, p.x, p.y));
+        const aabb = {
+            minX: Math.min(...worldPoints.map(p => p.x)),
+            minY: Math.min(...worldPoints.map(p => p.y)),
+            maxX: Math.max(...worldPoints.map(p => p.x)),
+            maxY: Math.max(...worldPoints.map(p => p.y))
+        };
+        this.labelHitAreas[item.name] = { points: worldPoints, aabb, item };
+
+        // 还原上下文
+        this.ctx.restore();
+    }
+
+    // 使字体适配最大宽度
+    fitFontSizeToWidth(text, maxWidth, baseSize, minSize, fontFamily) {
+        let size = baseSize;
+        this.ctx.font = `${size}px ${fontFamily}`;
+        let width = this.ctx.measureText(text).width;
+        while (width > maxWidth && size > minSize) {
+            size -= 1;
+            this.ctx.font = `${size}px ${fontFamily}`;
+            width = this.ctx.measureText(text).width;
+        }
+        return size;
+    }
+
+    // 绘制圆角矩形路径
+    drawRoundedRect(x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + r, y);
+        this.ctx.lineTo(x + width - r, y);
+        this.ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+        this.ctx.lineTo(x + width, y + height - r);
+        this.ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+        this.ctx.lineTo(x + r, y + height);
+        this.ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+        this.ctx.lineTo(x, y + r);
+        this.ctx.quadraticCurveTo(x, y, x + r, y);
+        // 注意：仅创建路径，填充/描边在调用处完成
+    }
+
+    // 角度转弧度
+    degToRad(deg) {
+        return (deg * Math.PI) / 180;
+    }
+
+    // 组合 2D 变换矩阵（与 Canvas 应用顺序一致）：T * R * S * SkX * SkY
+    composeTransformMatrix(tx, ty, rotationDeg, scaleX, scaleY, skewXDeg, skewYDeg) {
+        const toRad = (deg) => (deg * Math.PI) / 180;
+        const cos = Math.cos(this.degToRad(rotationDeg || 0));
+        const sin = Math.sin(this.degToRad(rotationDeg || 0));
+
+        const mTranslate = { a: 1, b: 0, c: 0, d: 1, e: tx, f: ty };
+        const mRotate    = { a: cos, b: sin, c: -sin, d: cos, e: 0, f: 0 };
+        const mScale     = { a: scaleX || 1, b: 0, c: 0, d: scaleY || 1, e: 0, f: 0 };
+        const mSkewX     = { a: 1, b: 0, c: Math.tan(toRad(skewXDeg || 0)), d: 1, e: 0, f: 0 };
+        const mSkewY     = { a: 1, b: Math.tan(toRad(skewYDeg || 0)), c: 0, d: 1, e: 0, f: 0 };
+
+        // M = T * R * S * SkX * SkY
+        let M = this.multiplyMatrix(mTranslate, mRotate);
+        M = this.multiplyMatrix(M, mScale);
+        M = this.multiplyMatrix(M, mSkewX);
+        M = this.multiplyMatrix(M, mSkewY);
+        return M;
+    }
+
+    multiplyMatrix(m1, m2) {
+        return {
+            a: m1.a * m2.a + m1.c * m2.b,
+            b: m1.b * m2.a + m1.d * m2.b,
+            c: m1.a * m2.c + m1.c * m2.d,
+            d: m1.b * m2.c + m1.d * m2.d,
+            e: m1.a * m2.e + m1.c * m2.f + m1.e,
+            f: m1.b * m2.e + m1.d * m2.f + m1.f
+        };
+    }
+
+    applyMatrixToPoint(m, x, y) {
+        return { x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f };
     }
 }
 

@@ -56,8 +56,11 @@ class PageManager {
     createPageContainer() {
         const body = document.body;
         
-        // 清空body内容（现在body只包含一个简单容器）
-        body.innerHTML = '';
+        // 清空应用根容器而不是整个body（避免删除body中可能存在的CSS链接）
+        const appRoot = document.getElementById('appRoot');
+        if (appRoot) {
+            appRoot.remove();
+        }
         
         // 创建页面管理器容器
         const pageManagerContainer = document.createElement('div');

@@ -13,62 +13,9 @@ function initializeGame() {
             return; // 页面管理器已接管初始化流程
         }
         
-        // 1. 初始化游戏核心（仅在直接访问终端模式时）
+        // 1. 初始化游戏核心（仅在直接访问终端模式时，旧版本兼容）
         window.GameCore.initialize().then(() => {
-            // 2. 获取服务和组件
-            const gameController = window.GameCore.getComponent('gameController');
-            const interfaceService = window.ServiceLocator.get('interface');
-            
-            // 3. 创建软盘控制器
-            const systemStateProvider = window.ServiceLocator.get('system') || new SystemStateProvider(gameController.model);
-            const floppyController = new FloppyController(systemStateProvider);
-            
-            // 4. 将软盘控制器引用附加到游戏控制器
-            gameController.floppyController = floppyController;
-            
-            // 5. 初始化地图MVC
-            const mapController = window.GameCore.getComponent('mapController');
-
-            // 6. 初始化身份MVC
-            const identityController = window.GameCore.getComponent('identityController');
-
-            // 8. 注册控制器到界面服务
-            if (interfaceService) {
-                interfaceService.registerController('terminal', gameController);
-                interfaceService.registerController('map', mapController);
-                interfaceService.registerController('identity', identityController);
-            }
-            
-            // 9. 订阅系统电源变化事件
-            EventBus.on('systemPowerChange', (isOn) => {
-                floppyController.handleSystemPowerChange(isOn);
-                
-                // 每次电源状态变化时保存设置
-                gameController.saveSettings();
-                
-                // 如果系统关闭，确保地图也隐藏
-                if (!isOn && mapController.model.isVisible) {
-                    mapController.model.setVisibility(false);
-                    mapController.view.hide();
-                }
-            });
-
-            // 10. 添加颜色切换事件监听
-            EventBus.on('colorModeChanged', (isAmber) => {
-                if (mapController) {
-                    mapController.view.updateColorMode(isAmber);
-                }
-                if (identityController) {
-                    identityController.updateColorMode(isAmber);
-                }
-            });
-
-            // 11. 初始化世界书系统
-            if (typeof initializeLorebookSystem === 'function') {
-                initializeLorebookSystem();
-            }
-            
-            console.log("游戏初始化完成");
+            console.log("游戏初始化完成（旧版本兼容模式）");
         });
     } catch (error) {
         console.error("游戏初始化失败:", error);
@@ -82,61 +29,8 @@ function initializeGameCore() {
         try {
             console.log("初始化游戏核心...");
             
-            // 1. 初始化游戏核心
+            // 1. 初始化游戏核心（只初始化基础服务）
             window.GameCore.initialize().then(() => {
-                // 2. 获取服务和组件
-                const gameController = window.GameCore.getComponent('gameController');
-                const interfaceService = window.ServiceLocator.get('interface');
-                
-                // 3. 创建软盘控制器
-                const systemStateProvider = window.ServiceLocator.get('system') || new SystemStateProvider(gameController.model);
-                const floppyController = new FloppyController(systemStateProvider);
-                
-                // 4. 将软盘控制器引用附加到游戏控制器
-                gameController.floppyController = floppyController;
-                
-                // 5. 初始化地图MVC
-                const mapController = window.GameCore.getComponent('mapController');
-
-                // 6. 初始化身份MVC
-                const identityController = window.GameCore.getComponent('identityController');
-
-                // 8. 注册控制器到界面服务
-                if (interfaceService) {
-                    interfaceService.registerController('terminal', gameController);
-                    interfaceService.registerController('map', mapController);
-                    interfaceService.registerController('identity', identityController);
-                }
-                
-                // 9. 订阅系统电源变化事件
-                EventBus.on('systemPowerChange', (isOn) => {
-                    floppyController.handleSystemPowerChange(isOn);
-                    
-                    // 每次电源状态变化时保存设置
-                    gameController.saveSettings();
-                    
-                    // 如果系统关闭，确保地图也隐藏
-                    if (!isOn && mapController.model.isVisible) {
-                        mapController.model.setVisibility(false);
-                        mapController.view.hide();
-                    }
-                });
-
-                // 10. 添加颜色切换事件监听
-                EventBus.on('colorModeChanged', (isAmber) => {
-                    if (mapController) {
-                        mapController.view.updateColorMode(isAmber);
-                    }
-                    if (identityController) {
-                        identityController.updateColorMode(isAmber);
-                    }
-                });
-
-                // 11. 初始化世界书系统
-                if (typeof initializeLorebookSystem === 'function') {
-                    initializeLorebookSystem();
-                }
-                
                 console.log("游戏核心初始化完成");
                 resolve();
             });

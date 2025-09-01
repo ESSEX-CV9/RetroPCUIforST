@@ -1057,11 +1057,10 @@ class PageManager {
         console.log(`桌面物品点击: ${action}`);
         
         // 播放点击音效
-        if (window.ServiceLocator) {
-            const audio = window.ServiceLocator.get('audio');
-            if (audio) {
-                audio.play('crtButton');
-            }
+        const serviceLocator = window.ServiceLocator;
+        const audio = serviceLocator?.get('audio');
+        if (audio) {
+            audio.play('crtButton');
         }
         
         switch (action) {
@@ -1113,23 +1112,34 @@ class PageManager {
                 await window.initializeGameCore();
             }
 
+            // 初始化终端模块
+            await this.initializeTerminalModule();
+
+            // 获取终端控制器并切换到地图
+            const serviceLocator = window.ServiceLocator;
+            const terminalController = serviceLocator.get('terminal');
+            const gameController = serviceLocator.get('gameController');
+
             // 确保系统已开机
-            if (window.gameController && !window.gameController.model.isOn) {
+            if (gameController && !gameController.model.isOn) {
                 console.log('自动开机系统以进入地图...');
-                window.gameController.powerOn();
+                gameController.powerOn();
                 await this.waitForSystemBoot(8000); // 最多等待8秒
             } else {
                 // 已经开机，稍作等待以确保界面服务就绪
                 await new Promise((r) => setTimeout(r, 150));
             }
 
-            // 直接切换到地图界面（优先走界面服务）
-            const interfaceService = window.ServiceLocator && window.ServiceLocator.get('interface');
+            // 通过界面服务切换到地图界面
+            const interfaceService = serviceLocator.get('interface');
             if (interfaceService && typeof interfaceService.switchTo === 'function') {
                 interfaceService.switchTo('map');
-            } else if (window.EventBus) {
+            } else {
                 // 回退：发布运行地图事件
-                window.EventBus.emit('runProgram', { program: 'map' });
+                const eventBus = serviceLocator.get('eventBus') || window.EventBus;
+                if (eventBus) {
+                    eventBus.emit('runProgram', { program: 'map' });
+                }
             }
         } catch (error) {
             console.error('进入地图模式失败:', error);
@@ -1147,21 +1157,49 @@ class PageManager {
             // 以覆盖模式显示终端页面，保持游戏选择页面在背景
             this.showPage('terminal', { transition: 'scaleIn', overlay: true });
             
-            // 等待DOM渲染完成后再初始化游戏核心
+            // 等待DOM渲染完成后再初始化终端模块
             setTimeout(async () => {
-            if (window.initializeGameCore) {
-                if (window.GameCore && !window.GameCore.initialized) {
-                    console.log('初始化游戏核心...');
-                    await window.initializeGameCore();
+                try {
+                    // 确保游戏核心已初始化
+                    if (window.initializeGameCore && (!window.GameCore || !window.GameCore.initialized)) {
+                        console.log('初始化游戏核心...');
+                        await window.initializeGameCore();
+                    }
+
+                    // 初始化终端模块
+                    await this.initializeTerminalModule();
+                } catch (error) {
+                    console.error('初始化终端模块失败:', error);
+                    alert('初始化终端模块失败，请查看控制台了解详情');
                 }
-            } else {
-                console.error('initializeGameCore函数不可用');
-            }
             }, 100); // 给DOM一些时间来渲染
             
         } catch (error) {
             console.error('进入终端模式失败:', error);
             alert('进入终端模式失败，请查看控制台了解详情');
+        }
+    }
+
+    /**
+     * 初始化终端模块
+     */
+    async initializeTerminalModule() {
+        const serviceLocator = window.ServiceLocator;
+        if (!serviceLocator) {
+            throw new Error('ServiceLocator不可用');
+        }
+
+        // 检查终端控制器是否已存在
+        let terminalController = serviceLocator.get('terminal');
+        if (!terminalController) {
+            // 创建并注册终端控制器
+            terminalController = new TerminalController(serviceLocator);
+            serviceLocator.register('terminal', terminalController);
+        }
+
+        // 初始化终端模块
+        if (!terminalController.isInitialized()) {
+            await terminalController.initialize();
         }
     }
 
@@ -1182,11 +1220,13 @@ class PageManager {
         
         // 确保游戏系统开机
         setTimeout(() => {
-            if (window.gameController) {
+            const serviceLocator = window.ServiceLocator;
+            const gameController = serviceLocator?.get('gameController');
+            if (gameController) {
                 // 如果系统未开机，自动开机
-                if (!window.gameController.model.isOn) {
+                if (!gameController.model.isOn) {
                     console.log('自动开机系统...');
-                    window.gameController.powerOn();
+                    gameController.powerOn();
                 }
             }
         }, 500);
@@ -1279,8 +1319,10 @@ class PageManager {
         }
 
         // 监听系统关机事件
-        if (window.EventBus) {
-            window.EventBus.on('systemPowerChange', (isOn) => {
+        const serviceLocator = window.ServiceLocator;
+        const eventBus = serviceLocator?.get('eventBus') || window.EventBus;
+        if (eventBus) {
+            eventBus.on('systemPowerChange', (isOn) => {
                 if (!isOn && this.currentPage === 'terminal') {
                     console.log('系统关机，退出终端');
                     // 延迟一下让关机动画播放完再退出
@@ -1289,11 +1331,9 @@ class PageManager {
                     }, 500);
                 }
             });
-        }
 
-        // 监听自定义退出事件（用于exit命令）
-        if (window.EventBus) {
-            window.EventBus.on('exitTerminal', () => {
+            // 监听自定义退出事件（用于exit命令）
+            eventBus.on('exitTerminal', () => {
                 this.exitTerminal(false, true); // exit命令也直接退出，不关机
             });
         }
@@ -1308,11 +1348,10 @@ class PageManager {
         console.log('退出终端模式');
         
         // 播放退出音效（如果有）
-        if (window.ServiceLocator) {
-            const audio = window.ServiceLocator.get('audio');
-            if (audio) {
-                audio.play('crtOff');
-            }
+        const serviceLocator = window.ServiceLocator;
+        const audio = serviceLocator?.get('audio');
+        if (audio) {
+            audio.play('crtOff');
         }
 
         if (directExit) {
@@ -1323,15 +1362,19 @@ class PageManager {
         }
 
         // 确保系统关机（如果需要的话）
-        if (!skipPowerOff && window.gameController && window.gameController.model.isOn) {
-            console.log('关闭系统...');
-            try {
-                window.gameController.powerOff();
-            } catch (error) {
-                console.error('关机时出错:', error);
-                // 即使关机出错也要退出
-                this.showPage('gameSelect', { transition: 'fadeIn' });
-                return;
+        if (!skipPowerOff) {
+            const serviceLocator = window.ServiceLocator;
+            const gameController = serviceLocator?.get('gameController');
+            if (gameController && gameController.model.isOn) {
+                console.log('关闭系统...');
+                try {
+                    gameController.powerOff();
+                } catch (error) {
+                    console.error('关机时出错:', error);
+                    // 即使关机出错也要退出
+                    this.showPage('gameSelect', { transition: 'fadeIn' });
+                    return;
+                }
             }
         }
 
@@ -1395,7 +1438,9 @@ class PageManager {
                 let settled = false;
 
                 // 如果已经是开机完成状态，直接返回
-                if (window.gameController && window.gameController.model && window.gameController.model.isOn) {
+                const serviceLocator = window.ServiceLocator;
+                const gameController = serviceLocator?.get('gameController');
+                if (gameController && gameController.model && gameController.model.isOn) {
                     return resolve();
                 }
 
